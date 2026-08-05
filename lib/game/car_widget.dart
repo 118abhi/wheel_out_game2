@@ -143,8 +143,11 @@ class RealCarPainter extends CustomPainter {
     _paintWheelArches(canvas, size);
     _paintBody(canvas, body, radius);
     _paintPanels(canvas, body);
+    _paintDoorHandlesAndTrim(canvas, body);
     _paintCabinAndGlass(canvas, body);
+    _paintVehicleSpecificDetails(canvas, body);
     _paintLightsAndDetails(canvas, body);
+    _paintLicensePlates(canvas, body);
     if (car.isTarget) _paintTargetDecal(canvas, body);
     if (selected) _paintSelectedOutline(canvas, body, radius);
   }
@@ -239,6 +242,117 @@ class RealCarPainter extends CustomPainter {
 
     canvas.drawLine(Offset(body.left + body.width * 0.08, body.top + body.height * 0.22), Offset(body.right - body.width * 0.08, body.top + body.height * 0.22), soft);
   }
+
+
+  void _paintDoorHandlesAndTrim(Canvas canvas, Rect body) {
+    final handlePaint = Paint()
+      ..color = Colors.white.withOpacity(0.30)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    final darkTrim = Paint()
+      ..color = Colors.black.withOpacity(0.22)
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+
+    final handleXs = car.length > 2
+        ? [body.left + body.width * 0.38, body.left + body.width * 0.58]
+        : [body.left + body.width * 0.50];
+    for (final x in handleXs) {
+      canvas.drawLine(Offset(x, body.top + body.height * 0.30), Offset(x + body.width * 0.04, body.top + body.height * 0.30), handlePaint);
+      canvas.drawLine(Offset(x, body.bottom - body.height * 0.30), Offset(x + body.width * 0.04, body.bottom - body.height * 0.30), handlePaint);
+    }
+
+    canvas.drawLine(Offset(body.left + body.width * 0.05, body.center.dy), Offset(body.right - body.width * 0.05, body.center.dy), darkTrim);
+    canvas.drawLine(Offset(body.left + body.width * 0.10, body.bottom - body.height * 0.15), Offset(body.right - body.width * 0.10, body.bottom - body.height * 0.15), darkTrim);
+  }
+
+  void _paintVehicleSpecificDetails(Canvas canvas, Rect body) {
+    final seed = _styleSeed;
+    if (car.length > 2) {
+      _paintVanOrTruckDetails(canvas, body, seed);
+    } else if (seed % 3 == 0) {
+      _paintSportDetails(canvas, body);
+    } else if (seed % 3 == 1) {
+      _paintSuvDetails(canvas, body);
+    } else {
+      _paintHatchbackDetails(canvas, body);
+    }
+  }
+
+  void _paintVanOrTruckDetails(Canvas canvas, Rect body, int seed) {
+    final railPaint = Paint()
+      ..color = Colors.white.withOpacity(0.18)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    final cargoPaint = Paint()
+      ..color = Colors.black.withOpacity(0.08)
+      ..style = PaintingStyle.fill;
+    final cargo = Rect.fromLTWH(body.left + body.width * 0.17, body.top + body.height * 0.18, body.width * 0.20, body.height * 0.64);
+    canvas.drawRRect(RRect.fromRectAndRadius(cargo, Radius.circular(body.height * 0.10)), cargoPaint);
+
+    for (int i = 0; i < 3; i++) {
+      final x = body.left + body.width * (0.25 + i * 0.16);
+      canvas.drawLine(Offset(x, body.top + body.height * 0.18), Offset(x + body.width * 0.08, body.bottom - body.height * 0.18), railPaint);
+    }
+
+    if (seed.isEven) {
+      final beacon = Paint()
+        ..color = AppTheme.accent.withOpacity(0.92)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
+      canvas.drawCircle(Offset(body.left + body.width * 0.67, body.top + body.height * 0.18), body.height * 0.055, beacon);
+    }
+  }
+
+  void _paintSportDetails(Canvas canvas, Rect body) {
+    final stripe = Paint()
+      ..shader = LinearGradient(colors: [Colors.white.withOpacity(0.40), Colors.white.withOpacity(0.05)]).createShader(body)
+      ..strokeWidth = body.height * 0.055
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(body.left + body.width * 0.18, body.center.dy), Offset(body.right - body.width * 0.22, body.center.dy), stripe);
+
+    final spoiler = Paint()..color = Colors.black.withOpacity(0.34);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.045, body.top + body.height * 0.22, body.width * 0.035, body.height * 0.56), Radius.circular(body.height * 0.04)),
+      spoiler,
+    );
+  }
+
+  void _paintSuvDetails(Canvas canvas, Rect body) {
+    final rail = Paint()
+      ..color = Colors.black.withOpacity(0.32)
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(body.left + body.width * 0.34, body.top + body.height * 0.14), Offset(body.left + body.width * 0.64, body.top + body.height * 0.14), rail);
+    canvas.drawLine(Offset(body.left + body.width * 0.34, body.bottom - body.height * 0.14), Offset(body.left + body.width * 0.64, body.bottom - body.height * 0.14), rail);
+
+    final step = Paint()..color = Colors.black.withOpacity(0.25);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.28, body.bottom - body.height * 0.06, body.width * 0.42, body.height * 0.035), Radius.circular(4)), step);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.28, body.top + body.height * 0.025, body.width * 0.42, body.height * 0.035), Radius.circular(4)), step);
+  }
+
+  void _paintHatchbackDetails(Canvas canvas, Rect body) {
+    final roofPaint = Paint()..color = Colors.white.withOpacity(0.08);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.38, body.top + body.height * 0.24, body.width * 0.18, body.height * 0.52), Radius.circular(body.height * 0.10)),
+      roofPaint,
+    );
+    final rearGlass = Paint()
+      ..shader = LinearGradient(colors: [Colors.lightBlueAccent.withOpacity(0.30), Colors.black.withOpacity(0.24)]).createShader(body);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.21, body.top + body.height * 0.27, body.width * 0.08, body.height * 0.46), Radius.circular(body.height * 0.05)),
+      rearGlass,
+    );
+  }
+
+  void _paintLicensePlates(Canvas canvas, Rect body) {
+    final platePaint = Paint()..color = const Color(0xFFEAEAEA).withOpacity(0.92);
+    final front = Rect.fromLTWH(body.right - body.width * 0.036, body.center.dy - body.height * 0.11, body.width * 0.018, body.height * 0.22);
+    final rear = Rect.fromLTWH(body.left + body.width * 0.018, body.center.dy - body.height * 0.10, body.width * 0.018, body.height * 0.20);
+    canvas.drawRRect(RRect.fromRectAndRadius(front, Radius.circular(2)), platePaint);
+    canvas.drawRRect(RRect.fromRectAndRadius(rear, Radius.circular(2)), platePaint..color = const Color(0xFFDDE6ED).withOpacity(0.82));
+  }
+
+  int get _styleSeed => car.id.codeUnits.fold<int>(car.length * 13, (sum, unit) => sum + unit);
 
   void _paintCabinAndGlass(Canvas canvas, Rect body) {
     final cabin = Rect.fromLTWH(
@@ -367,6 +481,17 @@ class RealCarPainter extends CustomPainter {
       ..strokeWidth = diameter * 0.12;
     canvas.drawCircle(center, diameter / 2, tire);
     canvas.drawCircle(center, diameter / 2 - diameter * 0.06, tireEdge);
+
+    final tread = Paint()
+      ..color = Colors.white.withOpacity(0.09)
+      ..strokeWidth = diameter * 0.035
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 8; i++) {
+      final angle = wheelRotation + i * math.pi / 4;
+      final start = center + Offset(math.cos(angle), math.sin(angle)) * diameter * 0.36;
+      final end = center + Offset(math.cos(angle), math.sin(angle)) * diameter * 0.47;
+      canvas.drawLine(start, end, tread);
+    }
 
     canvas.save();
     canvas.translate(center.dx, center.dy);

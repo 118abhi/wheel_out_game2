@@ -154,25 +154,14 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
   Widget _buildExit(double cellSize, double boardSize) {
     final exitRow = widget.gameState.level.exitRow;
     return Positioned(
-      left: boardSize - cellSize * 0.15,
+      left: boardSize - cellSize * 0.28,
       top: exitRow * cellSize,
-      width: cellSize * 0.15,
+      width: cellSize * 0.28,
       height: cellSize,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.4)],
-          ),
-          boxShadow: [
-            BoxShadow(color: AppTheme.accent.withOpacity(0.6), blurRadius: 12, spreadRadius: 2),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.arrow_forward, color: AppTheme.accent, size: cellSize * 0.4),
-            Container(height: 4, width: cellSize * 0.6, color: AppTheme.accent),
-          ],
+      child: AnimatedBuilder(
+        animation: _smokeController,
+        builder: (_, __) => CustomPaint(
+          painter: ExitGatePainter(pulse: _smokeController.value),
         ),
       ),
     );
@@ -423,6 +412,50 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
   }
 }
 
+class ExitGatePainter extends CustomPainter {
+  final double pulse;
+
+  ExitGatePainter({required this.pulse});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final glow = Paint()
+      ..color = AppTheme.accent.withOpacity(0.18 + math.sin(pulse * math.pi * 2).abs() * 0.18)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawRect(Offset.zero & size, glow);
+
+    final gatePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.white.withOpacity(0.92), Colors.white.withOpacity(0.22)],
+      ).createShader(Offset.zero & size);
+    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(size.width * 0.25)), gatePaint);
+
+    final chevron = Paint()
+      ..color = AppTheme.accent.withOpacity(0.95)
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 3; i++) {
+      final y = size.height * (0.25 + i * 0.24);
+      final path = Path()
+        ..moveTo(size.width * 0.22, y - size.height * 0.09)
+        ..lineTo(size.width * 0.62, y)
+        ..lineTo(size.width * 0.22, y + size.height * 0.09);
+      canvas.drawPath(path, chevron);
+    }
+
+    final barrier = Paint()
+      ..color = const Color(0xFF111923).withOpacity(0.55)
+      ..strokeWidth = 1.4;
+    canvas.drawLine(Offset(size.width * 0.08, 0), Offset(size.width * 0.08, size.height), barrier);
+    canvas.drawLine(Offset(size.width * 0.88, 0), Offset(size.width * 0.88, size.height), barrier);
+  }
+
+  @override
+  bool shouldRepaint(covariant ExitGatePainter oldDelegate) => oldDelegate.pulse != pulse;
+}
+
 class AsphaltPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -451,6 +484,31 @@ class AsphaltPainter extends CustomPainter {
       canvas.drawLine(Offset(size.width * 0.08, y), Offset(size.width * 0.28, y), lanePaint);
       canvas.drawLine(Offset(size.width * 0.72, y + 22), Offset(size.width * 0.92, y + 22), lanePaint);
     }
+
+    final curbPaint = Paint()
+      ..shader = LinearGradient(colors: [AppTheme.accent.withOpacity(0.42), Colors.white.withOpacity(0.24)]).createShader(Offset.zero & size)
+      ..strokeWidth = 3;
+    canvas.drawLine(const Offset(0, 2), Offset(size.width, 2), curbPaint);
+    canvas.drawLine(Offset(2, 0), Offset(2, size.height), curbPaint);
+    canvas.drawLine(Offset(0, size.height - 2), Offset(size.width, size.height - 2), curbPaint);
+
+    final crackPaint = Paint()
+      ..color = Colors.black.withOpacity(0.16)
+      ..strokeWidth = 1.1
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 9; i++) {
+      final start = Offset(rand.nextDouble() * size.width, rand.nextDouble() * size.height);
+      final path = Path()..moveTo(start.dx, start.dy);
+      for (int j = 0; j < 3; j++) {
+        path.relativeLineTo((rand.nextDouble() - 0.5) * 20, (rand.nextDouble() - 0.5) * 20);
+      }
+      canvas.drawPath(path, crackPaint);
+    }
+
+    final puddlePaint = Paint()
+      ..shader = RadialGradient(colors: [AppTheme.secondary.withOpacity(0.10), Colors.transparent]).createShader(Offset.zero & size);
+    canvas.drawOval(Rect.fromCenter(center: Offset(size.width * 0.24, size.height * 0.72), width: size.width * 0.26, height: size.height * 0.10), puddlePaint);
+    canvas.drawOval(Rect.fromCenter(center: Offset(size.width * 0.76, size.height * 0.18), width: size.width * 0.20, height: size.height * 0.08), puddlePaint);
   }
 
   @override
@@ -496,8 +554,36 @@ class GridPainter extends CustomPainter {
         // top-right
         canvas.drawLine(Offset(left + cellSize - l, top), Offset(left + cellSize, top), dashPaint);
         canvas.drawLine(Offset(left + cellSize, top), Offset(left + cellSize, top + l), dashPaint);
+
+        final bayText = TextPainter(
+          text: TextSpan(
+            text: '${String.fromCharCode(65 + y)}${x + 1}',
+            style: TextStyle(fontSize: cellSize * 0.12, fontWeight: FontWeight.w800, color: Colors.white.withOpacity(0.10)),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        bayText.paint(canvas, Offset(left + cellSize * 0.08, top + cellSize * 0.74));
       }
     }
+
+    final exitPaint = Paint()
+      ..color = AppTheme.accent.withOpacity(0.18)
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    final exitY = 2 * cellSize + cellSize / 2;
+    for (int i = 0; i < 3; i++) {
+      final x = cellSize * (3.2 + i * 0.55);
+      final path = Path()
+        ..moveTo(x, exitY - cellSize * 0.12)
+        ..lineTo(x + cellSize * 0.20, exitY)
+        ..lineTo(x, exitY + cellSize * 0.12);
+      canvas.drawPath(path, exitPaint);
+    }
+
+    final stopPaint = Paint()
+      ..color = Colors.white.withOpacity(0.20)
+      ..strokeWidth = 1.7;
+    canvas.drawLine(Offset(cellSize * (gridSize - 0.78), 2 * cellSize + cellSize * 0.18), Offset(cellSize * (gridSize - 0.78), 3 * cellSize - cellSize * 0.18), stopPaint);
   }
 
   @override
