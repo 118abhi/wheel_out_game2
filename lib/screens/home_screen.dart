@@ -1,10 +1,10 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
 import '../models/player_profile.dart';
 import '../theme/app_theme.dart';
-import '../widgets/animated_parking_background.dart';
 
 class HomeScreen extends StatefulWidget {
   final PlayerProfile profile;
@@ -29,6 +29,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _floatController;
   late AnimationController _shimmerController;
+  late AnimationController _sceneController;
   late Animation<double> _floatAnim;
 
   @override
@@ -36,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.initState();
     _floatController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
     _shimmerController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _sceneController = AnimationController(vsync: this, duration: const Duration(seconds: 18))..repeat();
     _floatAnim = Tween<double>(begin: -10, end: 10).animate(CurvedAnimation(parent: _floatController, curve: Curves.easeInOut));
   }
 
@@ -43,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void dispose() {
     _floatController.dispose();
     _shimmerController.dispose();
+    _sceneController.dispose();
     super.dispose();
   }
 
@@ -58,43 +61,62 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ),
         child: SafeArea(
-          child: AnimatedParkingBackground(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: AnimatedBuilder(
-                    animation: _floatController,
-                    builder: (_, __) => CustomPaint(
-                      painter: _HomeBackgroundPainter(value: _floatController.value),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([_sceneController, _floatController]),
+                  builder: (_, __) => CustomPaint(
+                    painter: _PremiumHomeScenePainter(
+                      progress: _sceneController.value,
+                      floatValue: _floatController.value,
                     ),
                   ),
                 ),
-                Column(
-                  children: [
-                    _buildProfileHud(),
-                    const Spacer(),
-                    AnimatedBuilder(
-                      animation: _floatAnim,
-                      builder: (context, child) {
-                        return Transform.translate(
-                          offset: Offset(0, _floatAnim.value),
-                          child: child,
-                        );
-                      },
-                      child: _buildLogo(),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: const Alignment(0, -0.25),
+                      radius: 1.05,
+                      colors: [Colors.transparent, Colors.black.withOpacity(0.34)],
                     ),
-                    const Spacer(),
-                    _buildActionPanel(),
-                    const SizedBox(height: 18),
-                    Text(
-                      'Flutter production build • Profile save enabled',
-                      style: TextStyle(color: Colors.white.withOpacity(0.34), fontSize: 11, letterSpacing: 1),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              Column(
+                children: [
+                  _buildProfileHud(),
+                  const Spacer(),
+                  AnimatedBuilder(
+                    animation: _floatAnim,
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(0, _floatAnim.value),
+                        child: child,
+                      );
+                    },
+                    child: _buildLogo(),
+                  ),
+                  const Spacer(),
+                  _buildActionPanel(),
+                  const SizedBox(height: 18),
+                  Text(
+                    'PRODUCTION GARAGE • PROFILE SAVE ENABLED',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.42),
+                      fontSize: 10.5,
+                      letterSpacing: 1.7,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'Roboto',
+                      fontFeatures: const [FontFeature.enable('kern')],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -134,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.profile.rankTitle, style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 12)),
+                        Text(widget.profile.rankTitle, style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 12, letterSpacing: 0.4, fontFamily: 'Roboto')),
                         const SizedBox(height: 4),
                         SizedBox(
                           width: 82,
@@ -201,7 +223,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           shaderCallback: (bounds) => const LinearGradient(colors: [AppTheme.primary, AppTheme.accent, AppTheme.secondary]).createShader(bounds),
           child: const Text(
             'WHEEL OUT',
-            style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Colors.white),
+            style: TextStyle(
+              fontSize: 50,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.2,
+              color: Colors.white,
+              fontFamily: 'Roboto',
+              fontFeatures: [FontFeature.enable('kern')],
+              shadows: [
+                Shadow(color: AppTheme.primary, blurRadius: 18),
+                Shadow(color: AppTheme.secondary, blurRadius: 26),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -214,7 +247,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           child: Text(
             'SLIDE • SPIN • ESCAPE',
-            style: TextStyle(letterSpacing: 4, fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.8)),
+            style: TextStyle(
+              letterSpacing: 4.6,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'Roboto',
+              color: Colors.white.withOpacity(0.84),
+              shadows: [Shadow(color: AppTheme.accent.withOpacity(0.35), blurRadius: 10)],
+            ),
           ),
         ),
       ],
@@ -292,7 +332,7 @@ class _HudChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Row(children: [Icon(icon, size: 16, color: color), const SizedBox(width: 4), Text(value, style: TextStyle(color: color, fontWeight: FontWeight.w900))]),
+      child: Row(children: [Icon(icon, size: 16, color: color), const SizedBox(width: 4), Text(value, style: TextStyle(color: color, fontWeight: FontWeight.w900, fontFamily: 'Roboto'))]),
     );
   }
 }
@@ -360,7 +400,12 @@ class _AnimatedButtonState extends State<_AnimatedButton> with SingleTickerProvi
               Icon(widget.icon, color: Colors.white, size: 24),
               const SizedBox(width: 8),
               Flexible(
-                child: Text(widget.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: Colors.white)),
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.15, color: Colors.white, fontFamily: 'Roboto'),
+                ),
               ),
             ],
           ),
@@ -389,19 +434,223 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-class _HomeBackgroundPainter extends CustomPainter {
-  final double value;
-  _HomeBackgroundPainter({required this.value});
+
+class _PremiumHomeScenePainter extends CustomPainter {
+  final double progress;
+  final double floatValue;
+
+  _PremiumHomeScenePainter({required this.progress, required this.floatValue});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.white.withOpacity(0.025);
-    for (int i = 0; i < 6; i++) {
-      final offset = (value * 20 - 10) * (i % 2 == 0 ? 1 : -1);
-      canvas.drawCircle(Offset(size.width * (0.2 + i * 0.15), size.height * 0.3 + offset), 40 + i * 15, paint);
+    _paintLuxurySky(canvas, size);
+    _paintNeonCity(canvas, size);
+    _paintPerspectiveRoad(canvas, size);
+    _paintMovingTraffic(canvas, size);
+    _paintForegroundGlow(canvas, size);
+    _paintFloatingParticles(canvas, size);
+  }
+
+  void _paintLuxurySky(Canvas canvas, Size size) {
+    final base = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF070B1A), Color(0xFF101A33), Color(0xFF151133), Color(0xFF0B1020)],
+        stops: [0.0, 0.42, 0.72, 1.0],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, base);
+
+    final sweep = Paint()
+      ..shader = SweepGradient(
+        startAngle: 0,
+        endAngle: math.pi * 2,
+        colors: [
+          AppTheme.primary.withOpacity(0.22),
+          AppTheme.secondary.withOpacity(0.16),
+          AppTheme.accent.withOpacity(0.10),
+          AppTheme.primary.withOpacity(0.22),
+        ],
+        transform: GradientRotation(progress * math.pi * 2),
+      ).createShader(Rect.fromCircle(center: Offset(size.width * 0.52, size.height * 0.30), radius: size.width * 0.9));
+    canvas.drawCircle(Offset(size.width * 0.52, size.height * 0.30), size.width * 0.72, sweep);
+
+    final moonPaint = Paint()
+      ..shader = RadialGradient(colors: [Colors.white.withOpacity(0.70), AppTheme.secondary.withOpacity(0.18), Colors.transparent]).createShader(
+        Rect.fromCircle(center: Offset(size.width * 0.82, size.height * 0.13), radius: size.width * 0.22),
+      );
+    canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.13), size.width * 0.20, moonPaint);
+  }
+
+  void _paintNeonCity(Canvas canvas, Size size) {
+    final horizon = size.height * 0.43;
+    final farPaint = Paint()..color = const Color(0xFF08101F).withOpacity(0.90);
+    final nearPaint = Paint()..color = const Color(0xFF050913).withOpacity(0.96);
+    final windowColors = [AppTheme.accent, AppTheme.secondary, Colors.white];
+
+    final rnd = math.Random(11);
+    double x = -20;
+    int building = 0;
+    while (x < size.width + 40) {
+      final width = 20 + rnd.nextDouble() * 26;
+      final height = 54 + rnd.nextDouble() * 120;
+      final top = horizon - height;
+      final rect = Rect.fromLTWH(x, top, width, height);
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(3)), building.isEven ? farPaint : nearPaint);
+
+      final antenna = Paint()
+        ..color = AppTheme.secondary.withOpacity(0.28)
+        ..strokeWidth = 1;
+      if (building % 4 == 0) {
+        canvas.drawLine(Offset(rect.center.dx, rect.top), Offset(rect.center.dx, rect.top - 18), antenna);
+        canvas.drawCircle(Offset(rect.center.dx, rect.top - 20), 2, Paint()..color = AppTheme.accent.withOpacity(0.7));
+      }
+
+      for (double wy = rect.top + 12; wy < rect.bottom - 8; wy += 14) {
+        for (double wx = rect.left + 6; wx < rect.right - 4; wx += 10) {
+          final twinkle = (math.sin(progress * math.pi * 2 + wx * 0.07 + wy * 0.03) + 1) / 2;
+          if ((wx + wy).round() % 3 != 0) {
+            canvas.drawRRect(
+              RRect.fromRectAndRadius(Rect.fromLTWH(wx, wy, 3.2, 5), const Radius.circular(1)),
+              Paint()..color = windowColors[(building + wy.toInt()) % windowColors.length].withOpacity(0.08 + twinkle * 0.20),
+            );
+          }
+        }
+      }
+      x += width + 5;
+      building++;
+    }
+
+    final signRect = Rect.fromCenter(center: Offset(size.width * 0.20, horizon - 62), width: size.width * 0.28, height: 34);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(signRect, const Radius.circular(10)),
+      Paint()..color = Colors.black.withOpacity(0.38),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(signRect, const Radius.circular(10)),
+      Paint()
+        ..color = AppTheme.accent.withOpacity(0.45 + math.sin(progress * math.pi * 2).abs() * 0.22)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6,
+    );
+    final tp = TextPainter(
+      text: const TextSpan(
+        text: 'VIP PARKING',
+        style: TextStyle(color: AppTheme.accent, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.8, fontFamily: 'Roboto'),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, signRect.center - Offset(tp.width / 2, tp.height / 2));
+  }
+
+  void _paintPerspectiveRoad(Canvas canvas, Size size) {
+    final horizon = size.height * 0.48;
+    final road = Path()
+      ..moveTo(size.width * 0.39, horizon)
+      ..lineTo(size.width * 0.61, horizon)
+      ..lineTo(size.width * 1.12, size.height)
+      ..lineTo(size.width * -0.12, size.height)
+      ..close();
+
+    final roadPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF28384B), Color(0xFF111923), Color(0xFF060A10)],
+      ).createShader(Rect.fromLTWH(0, horizon, size.width, size.height - horizon));
+    canvas.drawPath(road, roadPaint);
+
+    final shoulder = Paint()
+      ..color = Colors.white.withOpacity(0.15)
+      ..strokeWidth = 1.4;
+    canvas.drawLine(Offset(size.width * 0.39, horizon), Offset(size.width * -0.10, size.height), shoulder);
+    canvas.drawLine(Offset(size.width * 0.61, horizon), Offset(size.width * 1.10, size.height), shoulder);
+
+    final neon = Paint()
+      ..color = AppTheme.secondary.withOpacity(0.18)
+      ..strokeWidth = 1.2;
+    for (int i = 0; i < 8; i++) {
+      final t = (i / 8 + progress) % 1;
+      final y = horizon + (size.height - horizon) * math.pow(t, 1.65);
+      final spread = (y - horizon) / (size.height - horizon);
+      final left = size.width * (0.48 - spread * 0.30);
+      final right = size.width * (0.52 + spread * 0.30);
+      canvas.drawLine(Offset(left, y), Offset(right, y), neon..strokeWidth = 0.6 + spread * 2.2);
+    }
+
+    final dashPaint = Paint()
+      ..color = AppTheme.accent.withOpacity(0.54)
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 7; i++) {
+      final t = (i / 7 + progress * 1.25) % 1;
+      final eased = math.pow(t, 1.55).toDouble();
+      final y = horizon + (size.height - horizon) * eased;
+      final len = 10 + eased * 32;
+      canvas.drawLine(
+        Offset(size.width / 2, y),
+        Offset(size.width / 2, y + len),
+        dashPaint..strokeWidth = 2 + eased * 5,
+      );
+    }
+  }
+
+  void _paintMovingTraffic(Canvas canvas, Size size) {
+    _drawTrafficCar(canvas, size, lane: -1, phase: (progress * 1.2) % 1, color: AppTheme.targetRed);
+    _drawTrafficCar(canvas, size, lane: 1, phase: (progress * 1.2 + 0.48) % 1, color: AppTheme.secondary);
+    _drawTrafficCar(canvas, size, lane: -0.35, phase: (progress * 0.9 + 0.72) % 1, color: AppTheme.primary);
+  }
+
+  void _drawTrafficCar(Canvas canvas, Size size, {required double lane, required double phase, required Color color}) {
+    final horizon = size.height * 0.48;
+    final t = math.pow(phase, 1.9).toDouble();
+    final y = horizon + (size.height - horizon) * t;
+    final scale = 0.22 + t * 1.05;
+    final x = size.width * (0.50 + lane * t * 0.26);
+    final carW = 30 * scale;
+    final carH = 15 * scale;
+    final rect = Rect.fromCenter(center: Offset(x, y), width: carW, height: carH);
+    final glow = Paint()
+      ..color = color.withOpacity(0.14)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawOval(rect.inflate(8 * scale), glow);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect, Radius.circular(5 * scale)), Paint()..color = color.withOpacity(0.82));
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(x + carW * 0.08, y), width: carW * 0.32, height: carH * 0.58), Radius.circular(3 * scale)),
+      Paint()..color = Colors.lightBlueAccent.withOpacity(0.55),
+    );
+    canvas.drawCircle(Offset(rect.left + carW * 0.22, rect.bottom), 2.4 * scale, Paint()..color = Colors.black);
+    canvas.drawCircle(Offset(rect.right - carW * 0.22, rect.bottom), 2.4 * scale, Paint()..color = Colors.black);
+  }
+
+  void _paintForegroundGlow(Canvas canvas, Size size) {
+    final bottomGlow = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: [Colors.black.withOpacity(0.58), Colors.transparent],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, bottomGlow);
+
+    final logoSpot = Paint()
+      ..shader = RadialGradient(colors: [AppTheme.primary.withOpacity(0.18), Colors.transparent]).createShader(
+        Rect.fromCircle(center: Offset(size.width / 2, size.height * 0.42), radius: size.width * 0.48),
+      );
+    canvas.drawCircle(Offset(size.width / 2, size.height * 0.42), size.width * 0.46, logoSpot);
+  }
+
+  void _paintFloatingParticles(Canvas canvas, Size size) {
+    final colors = [AppTheme.primary, AppTheme.secondary, AppTheme.accent, Colors.white];
+    for (int i = 0; i < 32; i++) {
+      final phase = (progress + i * 0.037) % 1;
+      final x = (i * 41.0 + math.sin(progress * math.pi * 2 + i) * 18) % size.width;
+      final y = size.height * (0.05 + phase * 0.55) + math.sin(floatValue * math.pi * 2 + i) * 9;
+      final opacity = 0.05 + 0.13 * math.sin(phase * math.pi).abs();
+      canvas.drawCircle(Offset(x, y), 1.2 + (i % 4) * 0.55, Paint()..color = colors[i % colors.length].withOpacity(opacity));
     }
   }
 
   @override
-  bool shouldRepaint(covariant _HomeBackgroundPainter oldDelegate) => oldDelegate.value != value;
+  bool shouldRepaint(covariant _PremiumHomeScenePainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.floatValue != floatValue;
+  }
 }

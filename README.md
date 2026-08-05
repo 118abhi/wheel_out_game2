@@ -28,6 +28,7 @@ A beautifully crafted, highly polished parking jam puzzle game featuring fluid F
 ### 🎨 Visual Excellence
 - **Realistic Custom Car Widget** with top-down body panels, cabin glass, mirrors, grille, headlights, taillights, wheel arches, and **4 rotating fitted wheels per car**
 - **Wheel Rotation Physics** - `rotation = distance / wheelCircumference`
+- **Premium Animated Front Page** with neon city skyline, moving traffic, perspective highway, floating particles, cinematic glow, and polished Roboto typography
 - **Realistic Road/Parking Lot** with asphalt grit, curbs, cracks, puddle reflections, bay numbers, stop line, exit chevrons, and procedural texture (`CustomPainter`)
 - **Grid with Parking Spot Markers** - Dashed L-corners
 - **Particle Systems** - Confetti explosion on win, tire smoke on exit
