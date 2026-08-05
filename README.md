@@ -26,7 +26,7 @@ A beautifully crafted, highly polished parking jam puzzle game featuring fluid F
 ## ✨ Premium Features & Flutter Animations
 
 ### 🎨 Visual Excellence
-- **Custom Car Widget** with gradients, glassmorphism highlights, windows, headlights, and **4 rotating wheels per car**
+- **Realistic Custom Car Widget** with top-down body panels, cabin glass, mirrors, grille, headlights, taillights, wheel arches, and **4 rotating fitted wheels per car**
 - **Wheel Rotation Physics** - `rotation = distance / wheelCircumference`
 - **Asphalt Background** with procedural texture (`CustomPainter`)
 - **Grid with Parking Spot Markers** - Dashed L-corners
