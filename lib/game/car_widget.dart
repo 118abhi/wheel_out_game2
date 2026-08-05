@@ -148,7 +148,7 @@ class _CarWidgetState extends State<CarWidget> with SingleTickerProviderStateMix
       return Positioned(
         left: cell * 0.25,
         top: cell * 0.15,
-        width: cell * (isTarget ? 1.1 : lengthFactor(cell) * 0.55),
+        width: cell * (isTarget ? 1.1 : _lengthFactor * 0.55),
         height: cell * 0.38,
         child: Container(
           decoration: BoxDecoration(
@@ -175,7 +175,7 @@ class _CarWidgetState extends State<CarWidget> with SingleTickerProviderStateMix
         left: cell * 0.15,
         top: cell * 0.25,
         width: cell * 0.38,
-        height: cell * (isTarget ? 1.1 : lengthFactor(cell) * 0.55),
+        height: cell * (isTarget ? 1.1 : _lengthFactor * 0.55),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.75),
@@ -199,7 +199,7 @@ class _CarWidgetState extends State<CarWidget> with SingleTickerProviderStateMix
     }
   }
 
-  double lengthFactor(double cell) => widget.car.length.toDouble();
+  double get _lengthFactor => widget.car.length.toDouble();
 
   Widget _buildDoorLines(double cell, bool horiz) {
     return Positioned.fill(
@@ -473,7 +473,7 @@ class WheelSpokePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     for (int i = 0; i < 4; i++) {
-      final angle = (math.pi * 2 / 4) * i;
+      final angle = rotation + (math.pi * 2 / 4) * i;
       final dir = Offset(math.cos(angle), math.sin(angle)) * size.width * 0.35;
       canvas.drawLine(center, center + dir, paint);
     }

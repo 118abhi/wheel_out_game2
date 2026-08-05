@@ -4,13 +4,14 @@ import '../game/particle_system.dart';
 
 class WinScreen extends StatefulWidget {
   final int levelId;
+  final int totalLevels;
   final int moves;
   final int par;
   final bool isPerfect;
   final VoidCallback onNext;
   final VoidCallback onMenu;
   final VoidCallback onReplay;
-  const WinScreen({super.key, required this.levelId, required this.moves, required this.par, required this.isPerfect, required this.onNext, required this.onMenu, required this.onReplay});
+  const WinScreen({super.key, required this.levelId, required this.totalLevels, required this.moves, required this.par, required this.isPerfect, required this.onNext, required this.onMenu, required this.onReplay});
 
   @override
   State<WinScreen> createState() => _WinScreenState();
@@ -93,6 +94,8 @@ class _WinScreenState extends State<WinScreen> with TickerProviderStateMixin {
                         const Text("LEVEL COMPLETE!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.white)),
                         const SizedBox(height: 8),
                         Text("You freed the red wheel in ${widget.moves} moves!", style: TextStyle(color: Colors.white.withOpacity(0.6))),
+                        const SizedBox(height: 8),
+                        Text("+${stars * 10} coins • Profile XP saved", style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w800, fontSize: 12)),
                         const SizedBox(height: 20),
                         // stars
                         Row(
@@ -171,7 +174,7 @@ class _WinScreenState extends State<WinScreen> with TickerProviderStateMixin {
                         SizedBox(
                           width: double.infinity,
                           child: _ActionButton(
-                            label: widget.levelId >= 30 ? "FINISH" : "NEXT LEVEL",
+                            label: widget.levelId >= widget.totalLevels ? "FINISH TOUR" : "NEXT LEVEL",
                             icon: Icons.arrow_forward_rounded,
                             onTap: widget.onNext,
                           ),
