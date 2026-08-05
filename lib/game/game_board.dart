@@ -111,6 +111,7 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
                 _buildBoardBackground(cellSize, boardSize),
                 _buildGridLines(cellSize, boardSize),
                 _buildExit(cellSize, boardSize),
+                if (selectedCarId != null && draggingCarId == null) _buildMoveGuide(cellSize),
                 if (draggingCarId != null) _buildDragTrail(cellSize),
                 // Cars
                 ...widget.gameState.cars.map((car) => _buildCar(car, cellSize)),
@@ -167,14 +168,32 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
     );
   }
 
-  Widget _buildDragTrail(double cellSize) {
-    CarModel? car;
+  CarModel? _findCar(String? id) {
     for (final item in widget.gameState.cars) {
-      if (item.id == draggingCarId) {
-        car = item;
-        break;
-      }
+      if (item.id == id) return item;
     }
+    return null;
+  }
+
+  Widget _buildMoveGuide(double cellSize) {
+    final car = _findCar(selectedCarId);
+    if (car == null) return const SizedBox.shrink();
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: CustomPaint(
+          painter: MoveGuidePainter(
+            car: car,
+            cellSize: cellSize,
+            negativeSteps: widget.gameState.maxMoveInDirection(car, -1).abs(),
+            positiveSteps: widget.gameState.maxMoveInDirection(car, 1).abs(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDragTrail(double cellSize) {
+    final car = _findCar(draggingCarId);
     if (car == null) return const SizedBox.shrink();
     return Positioned.fill(
       child: IgnorePointer(
@@ -588,6 +607,81 @@ class GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class MoveGuidePainter extends CustomPainter {
+  final CarModel car;
+  final double cellSize;
+  final int negativeSteps;
+  final int positiveSteps;
+
+  MoveGuidePainter({required this.car, required this.cellSize, required this.negativeSteps, required this.positiveSteps});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final guidePaint = Paint()
+      ..color = AppTheme.secondary.withOpacity(0.14)
+      ..style = PaintingStyle.fill;
+    final borderPaint = Paint()
+      ..color = AppTheme.secondary.withOpacity(0.40)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    final arrowPaint = Paint()
+      ..color = AppTheme.accent.withOpacity(0.85)
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    void drawCell(int x, int y) {
+      final rect = Rect.fromLTWH(x * cellSize + cellSize * 0.10, y * cellSize + cellSize * 0.10, cellSize * 0.80, cellSize * 0.80);
+      final rrect = RRect.fromRectAndRadius(rect, Radius.circular(cellSize * 0.16));
+      canvas.drawRRect(rrect, guidePaint);
+      canvas.drawRRect(rrect, borderPaint);
+    }
+
+    if (car.isHorizontal) {
+      for (int step = 1; step <= negativeSteps; step++) {
+        drawCell(car.x - step, car.y);
+      }
+      for (int step = 1; step <= positiveSteps; step++) {
+        drawCell(car.x + car.length - 1 + step, car.y);
+      }
+      _drawGuideArrow(canvas, Offset((car.x - negativeSteps + 0.35) * cellSize, (car.y + 0.5) * cellSize), false, arrowPaint);
+      _drawGuideArrow(canvas, Offset((car.x + car.length + positiveSteps - 0.35) * cellSize, (car.y + 0.5) * cellSize), true, arrowPaint);
+    } else {
+      for (int step = 1; step <= negativeSteps; step++) {
+        drawCell(car.x, car.y - step);
+      }
+      for (int step = 1; step <= positiveSteps; step++) {
+        drawCell(car.x, car.y + car.length - 1 + step);
+      }
+      _drawGuideArrow(canvas, Offset((car.x + 0.5) * cellSize, (car.y - negativeSteps + 0.35) * cellSize), false, arrowPaint, vertical: true);
+      _drawGuideArrow(canvas, Offset((car.x + 0.5) * cellSize, (car.y + car.length + positiveSteps - 0.35) * cellSize), true, arrowPaint, vertical: true);
+    }
+  }
+
+  void _drawGuideArrow(Canvas canvas, Offset center, bool positive, Paint paint, {bool vertical = false}) {
+    if ((positive ? positiveSteps : negativeSteps) <= 0) return;
+    final size = cellSize * 0.12;
+    final path = Path();
+    if (!vertical) {
+      final dir = positive ? 1 : -1;
+      path.moveTo(center.dx - dir * size, center.dy - size);
+      path.lineTo(center.dx + dir * size, center.dy);
+      path.lineTo(center.dx - dir * size, center.dy + size);
+    } else {
+      final dir = positive ? 1 : -1;
+      path.moveTo(center.dx - size, center.dy - dir * size);
+      path.lineTo(center.dx, center.dy + dir * size);
+      path.lineTo(center.dx + size, center.dy - dir * size);
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant MoveGuidePainter oldDelegate) {
+    return oldDelegate.car != car || oldDelegate.negativeSteps != negativeSteps || oldDelegate.positiveSteps != positiveSteps;
+  }
 }
 
 class DragTrailPainter extends CustomPainter {

@@ -38,7 +38,7 @@ A beautifully crafted, highly polished parking jam puzzle game featuring fluid F
 - **Explicit**: `AnimationController` with `SingleTickerProviderStateMixin`, `TickerProviderStateMixin`
 - **Physics**: `ElasticOut`, `easeInOutCubic`, `decelerate`, spring simulations
 - **Hero-like Transitions**: Board scale-in with elastic, card stagger with `Interval`
-- **Gesture Physics**: Pan drag with clamped movement, shake animation when blocked (`sin` wave)
+- **Gesture Physics**: Pan drag with clamped movement, legal move guide lanes, parking sensor readout, shake animation when blocked (`sin` wave)
 - **Reward Wheel**: Full custom `CustomPainter` wheel with `SweepGradient`, spinning with `easeOutCubic` deceleration
 - **Confetti**: 120 particles with gravity, rotation, life cycle
 - **Splash Screen**: Floating logo + orbiting dots background
@@ -53,6 +53,8 @@ A beautifully crafted, highly polished parking jam puzzle game featuring fluid F
   - Collision detection via occupancy grid
   - `canMove()` and `maxMoveInDirection()`
 - **Hint System** - Finds blocking car and shows animated arrow + glow pulse
+- **Pause/Pro Coach Overlay** - Resume, restart, objectives, star forecast, controls, and profile resource summary
+- **Parking Sensor Feature** - Tap a car to show legal move lanes and forward/back movement counts
 - **Win Animation** - Red car accelerates out with smoke, then confetti celebration
 
 ### 📱 Screens
