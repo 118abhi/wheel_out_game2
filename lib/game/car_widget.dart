@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import '../models/car.dart';
 import '../theme/app_theme.dart';
 
@@ -32,9 +34,9 @@ class _CarWidgetState extends State<CarWidget> with SingleTickerProviderStateMix
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1300),
     )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 1.0, end: 1.08).animate(
+    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
   }
@@ -52,433 +54,508 @@ class _CarWidgetState extends State<CarWidget> with SingleTickerProviderStateMix
     final width = car.isHorizontal ? cell * car.length : cell;
     final height = car.isHorizontal ? cell : cell * car.length;
 
-    final isTarget = car.isTarget;
-
     return AnimatedBuilder(
       animation: _pulseAnim,
       builder: (context, child) {
-        final scale = (isTarget && !widget.isDragging) ? _pulseAnim.value : 1.0;
-        return Transform.scale(
-          scale: scale,
-          child: child,
-        );
+        final targetBreath = car.isTarget && !widget.isDragging ? 1 + (_pulseAnim.value * 0.018) : 1.0;
+        return Transform.scale(scale: targetBreath, child: child);
       },
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(cell * 0.22),
+          borderRadius: BorderRadius.circular(cell * 0.24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(widget.isDragging ? 0.4 : 0.25),
-              blurRadius: widget.isDragging ? 16 : 8,
-              offset: Offset(0, widget.isDragging ? 8 : 4),
+              color: Colors.black.withOpacity(widget.isDragging ? 0.46 : 0.28),
+              blurRadius: widget.isDragging ? 18 : 10,
+              offset: Offset(0, widget.isDragging ? 9 : 5),
             ),
             if (widget.isSelected)
               BoxShadow(
-                color: car.color.withOpacity(0.6),
-                blurRadius: 12,
-                spreadRadius: 2,
+                color: car.color.withOpacity(0.55),
+                blurRadius: 16,
+                spreadRadius: 1.4,
+              ),
+            if (car.isTarget)
+              BoxShadow(
+                color: AppTheme.targetRed.withOpacity(0.18),
+                blurRadius: 18,
+                spreadRadius: 1,
               ),
           ],
         ),
-        child: Stack(
-          children: [
-            // Car body with gradient
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(cell * 0.22),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    car.color,
-                    car.darkColor,
-                  ],
-                ),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1.2,
-                ),
-              ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(cell * 0.24),
+          child: CustomPaint(
+            painter: RealCarPainter(
+              car: car,
+              wheelRotation: widget.wheelRotation,
+              selected: widget.isSelected,
+              dragging: widget.isDragging,
+              pulse: _pulseAnim.value,
             ),
-            // Highlight
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(cell * 0.22),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.center,
-                    colors: [
-                      Colors.white.withOpacity(0.35),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Window / cockpit
-            _buildWindow(cell, isTarget, car.isHorizontal),
-            // Doors lines
-            if (car.length > 2) _buildDoorLines(cell, car.isHorizontal),
-            // Headlights / taillights
-            _buildLights(cell, car.isHorizontal, isTarget),
-            // Wheels
-            ..._buildWheels(cell, car.isHorizontal),
-            // Target crown icon
-            if (isTarget)
-              Positioned(
-                top: cell * 0.15,
-                left: car.isHorizontal ? cell * 0.25 : cell * 0.18,
-                child: Icon(
-                  Icons.emoji_events,
-                  size: cell * 0.32,
-                  color: Colors.white.withOpacity(0.9),
-                ),
-              ),
-          ],
+            size: Size(width, height),
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildWindow(double cell, bool isTarget, bool horizontal) {
-    if (horizontal) {
-      return Positioned(
-        left: cell * 0.25,
-        top: cell * 0.15,
-        width: cell * (isTarget ? 1.1 : lengthFactor(cell) * 0.55),
-        height: cell * 0.38,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.75),
-            borderRadius: BorderRadius.circular(cell * 0.08),
-            border: Border.all(color: Colors.white.withOpacity(0.4), width: 1),
-          ),
-          child: Container(
-            margin: EdgeInsets.all(cell * 0.04),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.lightBlueAccent.withOpacity(0.9),
-                  Colors.blue.shade900.withOpacity(0.6),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(cell * 0.05),
-            ),
-          ),
-        ),
-      );
+class RealCarPainter extends CustomPainter {
+  final CarModel car;
+  final double wheelRotation;
+  final bool selected;
+  final bool dragging;
+  final double pulse;
+
+  RealCarPainter({
+    required this.car,
+    required this.wheelRotation,
+    required this.selected,
+    required this.dragging,
+    required this.pulse,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (car.isHorizontal) {
+      _paintHorizontal(canvas, size);
     } else {
-      return Positioned(
-        left: cell * 0.15,
-        top: cell * 0.25,
-        width: cell * 0.38,
-        height: cell * (isTarget ? 1.1 : lengthFactor(cell) * 0.55),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.75),
-            borderRadius: BorderRadius.circular(cell * 0.08),
-            border: Border.all(color: Colors.white.withOpacity(0.4), width: 1),
-          ),
-          child: Container(
-            margin: EdgeInsets.all(cell * 0.04),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.lightBlueAccent.withOpacity(0.9),
-                  Colors.blue.shade900.withOpacity(0.6),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(cell * 0.05),
-            ),
-          ),
-        ),
-      );
+      canvas.save();
+      canvas.translate(size.width / 2, size.height / 2);
+      canvas.rotate(math.pi / 2);
+      canvas.translate(-size.height / 2, -size.width / 2);
+      _paintHorizontal(canvas, Size(size.height, size.width));
+      canvas.restore();
     }
   }
 
-  double lengthFactor(double cell) => widget.car.length.toDouble();
+  void _paintHorizontal(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final body = Rect.fromLTWH(w * 0.035, h * 0.125, w * 0.93, h * 0.75);
+    final radius = h * 0.24;
 
-  Widget _buildDoorLines(double cell, bool horiz) {
-    return Positioned.fill(
-      child: CustomPaint(
-        painter: DoorLinePainter(
-          isHorizontal: horiz,
-          color: Colors.black.withOpacity(0.2),
-        ),
-      ),
+    _paintUnderGlow(canvas, size, body);
+    _paintWheels(canvas, size);
+    _paintWheelArches(canvas, size);
+    _paintBody(canvas, body, radius);
+    _paintPanels(canvas, body);
+    _paintDoorHandlesAndTrim(canvas, body);
+    _paintCabinAndGlass(canvas, body);
+    _paintVehicleSpecificDetails(canvas, body);
+    _paintLightsAndDetails(canvas, body);
+    _paintLicensePlates(canvas, body);
+    if (car.isTarget) _paintTargetDecal(canvas, body);
+    if (selected) _paintSelectedOutline(canvas, body, radius);
+  }
+
+  void _paintUnderGlow(Canvas canvas, Size size, Rect body) {
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(dragging ? 0.35 : 0.22)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(body.shift(Offset(0, size.height * 0.08)), Radius.circular(size.height * 0.22)),
+      shadowPaint,
     );
+
+    if (car.isTarget || selected) {
+      final glow = Paint()
+        ..color = (car.isTarget ? AppTheme.accent : car.color).withOpacity(0.10 + pulse * 0.12)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+      canvas.drawRRect(RRect.fromRectAndRadius(body.inflate(size.height * 0.08), Radius.circular(size.height * 0.3)), glow);
+    }
   }
 
-  Widget _buildLights(double cell, bool horiz, bool isTarget) {
-    if (horiz) {
-      return Stack(
-        children: [
-          // Headlight right side
-          Positioned(
-            right: cell * 0.08,
-            top: cell * 0.18,
-            child: Container(
-              width: cell * 0.12,
-              height: cell * 0.14,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(cell * 0.04),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.8),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            right: cell * 0.08,
-            bottom: cell * 0.18,
-            child: Container(
-              width: cell * 0.12,
-              height: cell * 0.14,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(cell * 0.04),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.8),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Tail light left
-          Positioned(
-            left: cell * 0.06,
-            top: cell * 0.2,
-            child: Container(
-              width: cell * 0.08,
-              height: cell * 0.12,
-              decoration: BoxDecoration(
-                color: isTarget ? Colors.red.shade700 : Colors.red.shade400,
-                borderRadius: BorderRadius.circular(cell * 0.03),
-              ),
-            ),
-          ),
-          Positioned(
-            left: cell * 0.06,
-            bottom: cell * 0.2,
-            child: Container(
-              width: cell * 0.08,
-              height: cell * 0.12,
-              decoration: BoxDecoration(
-                color: isTarget ? Colors.red.shade700 : Colors.red.shade400,
-                borderRadius: BorderRadius.circular(cell * 0.03),
-              ),
-            ),
-          ),
+  void _paintBody(Canvas canvas, Rect body, double radius) {
+    final bodyPath = Path()
+      ..moveTo(body.left + radius, body.top)
+      ..lineTo(body.right - radius * 0.72, body.top)
+      ..quadraticBezierTo(body.right, body.top + radius * 0.22, body.right, body.top + radius)
+      ..lineTo(body.right, body.bottom - radius)
+      ..quadraticBezierTo(body.right, body.bottom - radius * 0.22, body.right - radius * 0.72, body.bottom)
+      ..lineTo(body.left + radius, body.bottom)
+      ..quadraticBezierTo(body.left, body.bottom, body.left, body.bottom - radius)
+      ..lineTo(body.left, body.top + radius)
+      ..quadraticBezierTo(body.left, body.top, body.left + radius, body.top)
+      ..close();
+
+    final basePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          _lighten(car.color, 0.18),
+          car.color,
+          car.darkColor,
         ],
-      );
-    } else {
-      return Stack(
-        children: [
-          Positioned(
-            top: cell * 0.08,
-            left: cell * 0.18,
-            child: Container(
-              width: cell * 0.14,
-              height: cell * 0.12,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(cell * 0.04),
-              ),
-            ),
-          ),
-          Positioned(
-            top: cell * 0.08,
-            right: cell * 0.18,
-            child: Container(
-              width: cell * 0.14,
-              height: cell * 0.12,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(cell * 0.04),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: cell * 0.06,
-            left: cell * 0.2,
-            child: Container(
-              width: cell * 0.12,
-              height: cell * 0.08,
-              decoration: BoxDecoration(
-                color: Colors.red.shade400,
-                borderRadius: BorderRadius.circular(cell * 0.03),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: cell * 0.06,
-            right: cell * 0.2,
-            child: Container(
-              width: cell * 0.12,
-              height: cell * 0.08,
-              decoration: BoxDecoration(
-                color: Colors.red.shade400,
-                borderRadius: BorderRadius.circular(cell * 0.03),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
+        stops: const [0.0, 0.48, 1.0],
+      ).createShader(body);
+    canvas.drawPath(bodyPath, basePaint);
+
+    final sidePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.transparent, Colors.black.withOpacity(0.18)],
+      ).createShader(body);
+    canvas.drawPath(bodyPath, sidePaint);
+
+    final highlightPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.white.withOpacity(0.38), Colors.white.withOpacity(0.05), Colors.transparent],
+        stops: const [0.0, 0.38, 1.0],
+      ).createShader(body);
+    canvas.drawPath(bodyPath, highlightPaint);
+
+    final border = Paint()
+      ..color = Colors.white.withOpacity(0.34)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawPath(bodyPath, border);
   }
 
-  List<Widget> _buildWheels(double cell, bool horiz) {
-    final wheelSize = cell * 0.22;
-    final rotation = widget.wheelRotation;
-
-    Widget wheel(double left, double top) {
-      return Positioned(
-        left: left,
-        top: top,
-        child: Transform.rotate(
-          angle: rotation,
-          child: Container(
-            width: wheelSize,
-            height: wheelSize,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF1E272E),
-              border: Border.all(color: const Color(0xFF485460), width: 2.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.5),
-                  blurRadius: 3,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: wheelSize * 0.55,
-                  height: wheelSize * 0.55,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFD2DAE2),
-                    border: Border.all(color: const Color(0xFF808E9B), width: 1),
-                  ),
-                ),
-                // spokes
-                CustomPaint(
-                  size: Size(wheelSize * 0.7, wheelSize * 0.7),
-                  painter: WheelSpokePainter(rotation: 0),
-                ),
-                Container(
-                  width: wheelSize * 0.2,
-                  height: wheelSize * 0.2,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF1E272E),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (horiz) {
-      // horizontal car: 4 wheels, 2 per side (top/bottom) and front/back
-      final carLen = widget.car.length.toDouble();
-      return [
-        wheel(cell * 0.3, -wheelSize * 0.35), // front top
-        wheel(cell * 0.3, cell - wheelSize * 0.65), // front bottom
-        wheel(cell * (carLen - 0.65), -wheelSize * 0.35), // rear top
-        wheel(cell * (carLen - 0.65), cell - wheelSize * 0.65), // rear bottom
-      ];
-    } else {
-      final carLen = widget.car.length.toDouble();
-      return [
-        wheel(-wheelSize * 0.35, cell * 0.3),
-        wheel(cell - wheelSize * 0.65, cell * 0.3),
-        wheel(-wheelSize * 0.35, cell * (carLen - 0.65)),
-        wheel(cell - wheelSize * 0.65, cell * (carLen - 0.65)),
-      ];
-    }
-  }
-}
-
-class DoorLinePainter extends CustomPainter {
-  final bool isHorizontal;
-  final Color color;
-  DoorLinePainter({required this.isHorizontal, required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-
-    if (isHorizontal) {
-      // vertical line in middle if length 3
-      if (size.width > size.height * 2.2) {
-        canvas.drawLine(
-          Offset(size.width * 0.5, 0),
-          Offset(size.width * 0.5, size.height),
-          paint,
-        );
-        canvas.drawLine(
-          Offset(size.width * 0.33, size.height * 0.15),
-          Offset(size.width * 0.33, size.height * 0.85),
-          paint..strokeWidth = 0.8,
-        );
-        canvas.drawLine(
-          Offset(size.width * 0.66, size.height * 0.15),
-          Offset(size.width * 0.66, size.height * 0.85),
-          paint..strokeWidth = 0.8,
-        );
-      }
-    } else {
-      if (size.height > size.width * 2.2) {
-        canvas.drawLine(
-          Offset(0, size.height * 0.5),
-          Offset(size.width, size.height * 0.5),
-          paint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class WheelSpokePainter extends CustomPainter {
-  final double rotation;
-  WheelSpokePainter({required this.rotation});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final paint = Paint()
-      ..color = const Color(0xFF1E272E)
-      ..strokeWidth = 1.5
+  void _paintPanels(Canvas canvas, Rect body) {
+    final panel = Paint()
+      ..color = Colors.black.withOpacity(0.18)
+      ..strokeWidth = 1.1
+      ..strokeCap = StrokeCap.round;
+    final soft = Paint()
+      ..color = Colors.white.withOpacity(0.12)
+      ..strokeWidth = 0.8
       ..strokeCap = StrokeCap.round;
 
-    for (int i = 0; i < 4; i++) {
-      final angle = (math.pi * 2 / 4) * i;
-      final dir = Offset(math.cos(angle), math.sin(angle)) * size.width * 0.35;
-      canvas.drawLine(center, center + dir, paint);
+    final hoodX = body.left + body.width * 0.72;
+    final trunkX = body.left + body.width * 0.22;
+    canvas.drawLine(Offset(hoodX, body.top + body.height * 0.12), Offset(hoodX, body.bottom - body.height * 0.12), panel);
+    canvas.drawLine(Offset(trunkX, body.top + body.height * 0.14), Offset(trunkX, body.bottom - body.height * 0.14), panel);
+
+    if (car.length > 2) {
+      final mid = body.left + body.width * 0.49;
+      canvas.drawLine(Offset(mid, body.top + body.height * 0.10), Offset(mid, body.bottom - body.height * 0.10), panel);
+      canvas.drawLine(Offset(body.left + body.width * 0.36, body.center.dy), Offset(body.left + body.width * 0.63, body.center.dy), soft);
+    }
+
+    canvas.drawLine(Offset(body.left + body.width * 0.08, body.top + body.height * 0.22), Offset(body.right - body.width * 0.08, body.top + body.height * 0.22), soft);
+  }
+
+
+  void _paintDoorHandlesAndTrim(Canvas canvas, Rect body) {
+    final handlePaint = Paint()
+      ..color = Colors.white.withOpacity(0.30)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    final darkTrim = Paint()
+      ..color = Colors.black.withOpacity(0.22)
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+
+    final handleXs = car.length > 2
+        ? [body.left + body.width * 0.38, body.left + body.width * 0.58]
+        : [body.left + body.width * 0.50];
+    for (final x in handleXs) {
+      canvas.drawLine(Offset(x, body.top + body.height * 0.30), Offset(x + body.width * 0.04, body.top + body.height * 0.30), handlePaint);
+      canvas.drawLine(Offset(x, body.bottom - body.height * 0.30), Offset(x + body.width * 0.04, body.bottom - body.height * 0.30), handlePaint);
+    }
+
+    canvas.drawLine(Offset(body.left + body.width * 0.05, body.center.dy), Offset(body.right - body.width * 0.05, body.center.dy), darkTrim);
+    canvas.drawLine(Offset(body.left + body.width * 0.10, body.bottom - body.height * 0.15), Offset(body.right - body.width * 0.10, body.bottom - body.height * 0.15), darkTrim);
+  }
+
+  void _paintVehicleSpecificDetails(Canvas canvas, Rect body) {
+    final seed = _styleSeed;
+    if (car.length > 2) {
+      _paintVanOrTruckDetails(canvas, body, seed);
+    } else if (seed % 3 == 0) {
+      _paintSportDetails(canvas, body);
+    } else if (seed % 3 == 1) {
+      _paintSuvDetails(canvas, body);
+    } else {
+      _paintHatchbackDetails(canvas, body);
     }
   }
 
+  void _paintVanOrTruckDetails(Canvas canvas, Rect body, int seed) {
+    final railPaint = Paint()
+      ..color = Colors.white.withOpacity(0.18)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    final cargoPaint = Paint()
+      ..color = Colors.black.withOpacity(0.08)
+      ..style = PaintingStyle.fill;
+    final cargo = Rect.fromLTWH(body.left + body.width * 0.17, body.top + body.height * 0.18, body.width * 0.20, body.height * 0.64);
+    canvas.drawRRect(RRect.fromRectAndRadius(cargo, Radius.circular(body.height * 0.10)), cargoPaint);
+
+    for (int i = 0; i < 3; i++) {
+      final x = body.left + body.width * (0.25 + i * 0.16);
+      canvas.drawLine(Offset(x, body.top + body.height * 0.18), Offset(x + body.width * 0.08, body.bottom - body.height * 0.18), railPaint);
+    }
+
+    if (seed.isEven) {
+      final beacon = Paint()
+        ..color = AppTheme.accent.withOpacity(0.92)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
+      canvas.drawCircle(Offset(body.left + body.width * 0.67, body.top + body.height * 0.18), body.height * 0.055, beacon);
+    }
+  }
+
+  void _paintSportDetails(Canvas canvas, Rect body) {
+    final stripe = Paint()
+      ..shader = LinearGradient(colors: [Colors.white.withOpacity(0.40), Colors.white.withOpacity(0.05)]).createShader(body)
+      ..strokeWidth = body.height * 0.055
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(body.left + body.width * 0.18, body.center.dy), Offset(body.right - body.width * 0.22, body.center.dy), stripe);
+
+    final spoiler = Paint()..color = Colors.black.withOpacity(0.34);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.045, body.top + body.height * 0.22, body.width * 0.035, body.height * 0.56), Radius.circular(body.height * 0.04)),
+      spoiler,
+    );
+  }
+
+  void _paintSuvDetails(Canvas canvas, Rect body) {
+    final rail = Paint()
+      ..color = Colors.black.withOpacity(0.32)
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(body.left + body.width * 0.34, body.top + body.height * 0.14), Offset(body.left + body.width * 0.64, body.top + body.height * 0.14), rail);
+    canvas.drawLine(Offset(body.left + body.width * 0.34, body.bottom - body.height * 0.14), Offset(body.left + body.width * 0.64, body.bottom - body.height * 0.14), rail);
+
+    final step = Paint()..color = Colors.black.withOpacity(0.25);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.28, body.bottom - body.height * 0.06, body.width * 0.42, body.height * 0.035), Radius.circular(4)), step);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.28, body.top + body.height * 0.025, body.width * 0.42, body.height * 0.035), Radius.circular(4)), step);
+  }
+
+  void _paintHatchbackDetails(Canvas canvas, Rect body) {
+    final roofPaint = Paint()..color = Colors.white.withOpacity(0.08);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.38, body.top + body.height * 0.24, body.width * 0.18, body.height * 0.52), Radius.circular(body.height * 0.10)),
+      roofPaint,
+    );
+    final rearGlass = Paint()
+      ..shader = LinearGradient(colors: [Colors.lightBlueAccent.withOpacity(0.30), Colors.black.withOpacity(0.24)]).createShader(body);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.21, body.top + body.height * 0.27, body.width * 0.08, body.height * 0.46), Radius.circular(body.height * 0.05)),
+      rearGlass,
+    );
+  }
+
+  void _paintLicensePlates(Canvas canvas, Rect body) {
+    final platePaint = Paint()..color = const Color(0xFFEAEAEA).withOpacity(0.92);
+    final front = Rect.fromLTWH(body.right - body.width * 0.036, body.center.dy - body.height * 0.11, body.width * 0.018, body.height * 0.22);
+    final rear = Rect.fromLTWH(body.left + body.width * 0.018, body.center.dy - body.height * 0.10, body.width * 0.018, body.height * 0.20);
+    canvas.drawRRect(RRect.fromRectAndRadius(front, Radius.circular(2)), platePaint);
+    canvas.drawRRect(RRect.fromRectAndRadius(rear, Radius.circular(2)), platePaint..color = const Color(0xFFDDE6ED).withOpacity(0.82));
+  }
+
+  int get _styleSeed => car.id.codeUnits.fold<int>(car.length * 13, (sum, unit) => sum + unit);
+
+  void _paintCabinAndGlass(Canvas canvas, Rect body) {
+    final cabin = Rect.fromLTWH(
+      body.left + body.width * (car.length > 2 ? 0.33 : 0.35),
+      body.top + body.height * 0.18,
+      body.width * (car.length > 2 ? 0.31 : 0.34),
+      body.height * 0.64,
+    );
+    final cabinRRect = RRect.fromRectAndRadius(cabin, Radius.circular(body.height * 0.16));
+
+    final cabinFrame = Paint()
+      ..shader = LinearGradient(
+        colors: [Colors.black.withOpacity(0.72), Colors.black.withOpacity(0.42)],
+      ).createShader(cabin);
+    canvas.drawRRect(cabinRRect, cabinFrame);
+
+    final glassPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.lightBlueAccent.withOpacity(0.86),
+          const Color(0xFF0D47A1).withOpacity(0.78),
+          Colors.black.withOpacity(0.62),
+        ],
+      ).createShader(cabin.deflate(body.height * 0.06));
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(cabin.deflate(body.height * 0.06), Radius.circular(body.height * 0.11)),
+      glassPaint,
+    );
+
+    final shine = Paint()
+      ..shader = LinearGradient(
+        colors: [Colors.white.withOpacity(0.45), Colors.transparent],
+      ).createShader(cabin);
+    final shinePath = Path()
+      ..moveTo(cabin.left + cabin.width * 0.12, cabin.top + cabin.height * 0.12)
+      ..lineTo(cabin.left + cabin.width * 0.48, cabin.top + cabin.height * 0.12)
+      ..lineTo(cabin.left + cabin.width * 0.20, cabin.bottom - cabin.height * 0.12)
+      ..lineTo(cabin.left + cabin.width * 0.02, cabin.bottom - cabin.height * 0.12)
+      ..close();
+    canvas.drawPath(shinePath, shine);
+
+    final mirrorPaint = Paint()..color = car.darkColor.withOpacity(0.88);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(cabin.right - body.width * 0.01, cabin.top - body.height * 0.08, body.width * 0.08, body.height * 0.12),
+        Radius.circular(body.height * 0.04),
+      ),
+      mirrorPaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(cabin.right - body.width * 0.01, cabin.bottom - body.height * 0.04, body.width * 0.08, body.height * 0.12),
+        Radius.circular(body.height * 0.04),
+      ),
+      mirrorPaint,
+    );
+  }
+
+  void _paintLightsAndDetails(Canvas canvas, Rect body) {
+    final headlight = Paint()
+      ..color = Colors.white.withOpacity(0.96)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6);
+    final headGlow = Paint()
+      ..color = AppTheme.accent.withOpacity(0.16 + pulse * 0.08)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    final tail = Paint()..color = (car.isTarget ? AppTheme.targetRed : Colors.redAccent).withOpacity(0.95);
+
+    final topLamp = Rect.fromLTWH(body.right - body.width * 0.055, body.top + body.height * 0.18, body.width * 0.035, body.height * 0.18);
+    final bottomLamp = Rect.fromLTWH(body.right - body.width * 0.055, body.bottom - body.height * 0.36, body.width * 0.035, body.height * 0.18);
+    canvas.drawOval(topLamp.inflate(3), headGlow);
+    canvas.drawOval(bottomLamp.inflate(3), headGlow);
+    canvas.drawRRect(RRect.fromRectAndRadius(topLamp, Radius.circular(body.height * 0.04)), headlight);
+    canvas.drawRRect(RRect.fromRectAndRadius(bottomLamp, Radius.circular(body.height * 0.04)), headlight);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.018, body.top + body.height * 0.18, body.width * 0.028, body.height * 0.18), Radius.circular(body.height * 0.035)),
+      tail,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.018, body.bottom - body.height * 0.36, body.width * 0.028, body.height * 0.18), Radius.circular(body.height * 0.035)),
+      tail,
+    );
+
+    final grille = Paint()
+      ..color = Colors.black.withOpacity(0.35)
+      ..strokeWidth = 1.0;
+    for (int i = 0; i < 3; i++) {
+      final y = body.top + body.height * (0.40 + i * 0.08);
+      canvas.drawLine(Offset(body.right - body.width * 0.06, y), Offset(body.right - body.width * 0.025, y), grille);
+    }
+  }
+
+  void _paintWheels(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final wheel = h * 0.22;
+    final positions = [
+      Offset(w * 0.20, h * 0.22),
+      Offset(w * 0.20, h * 0.78),
+      Offset(w * 0.79, h * 0.22),
+      Offset(w * 0.79, h * 0.78),
+    ];
+    for (final center in positions) {
+      _drawWheel(canvas, center, wheel);
+    }
+  }
+
+  void _paintWheelArches(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final archPaint = Paint()..color = Colors.black.withOpacity(0.22);
+    final archW = h * 0.34;
+    final archH = h * 0.20;
+    for (final center in [Offset(w * 0.20, h * 0.22), Offset(w * 0.20, h * 0.78), Offset(w * 0.79, h * 0.22), Offset(w * 0.79, h * 0.78)]) {
+      canvas.drawOval(Rect.fromCenter(center: center, width: archW, height: archH), archPaint);
+    }
+  }
+
+  void _drawWheel(Canvas canvas, Offset center, double diameter) {
+    final tire = Paint()..color = const Color(0xFF101820);
+    final tireEdge = Paint()
+      ..color = const Color(0xFF3A4652)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = diameter * 0.12;
+    canvas.drawCircle(center, diameter / 2, tire);
+    canvas.drawCircle(center, diameter / 2 - diameter * 0.06, tireEdge);
+
+    final tread = Paint()
+      ..color = Colors.white.withOpacity(0.09)
+      ..strokeWidth = diameter * 0.035
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 8; i++) {
+      final angle = wheelRotation + i * math.pi / 4;
+      final start = center + Offset(math.cos(angle), math.sin(angle)) * diameter * 0.36;
+      final end = center + Offset(math.cos(angle), math.sin(angle)) * diameter * 0.47;
+      canvas.drawLine(start, end, tread);
+    }
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(wheelRotation);
+
+    final rim = Paint()
+      ..shader = const RadialGradient(colors: [Color(0xFFE8EEF5), Color(0xFF7F8FA6)]).createShader(Rect.fromCircle(center: Offset.zero, radius: diameter * 0.28));
+    canvas.drawCircle(Offset.zero, diameter * 0.28, rim);
+
+    final spoke = Paint()
+      ..color = const Color(0xFF1E272E)
+      ..strokeWidth = diameter * 0.075
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 5; i++) {
+      final angle = (math.pi * 2 / 5) * i;
+      canvas.drawLine(Offset.zero, Offset(math.cos(angle), math.sin(angle)) * diameter * 0.24, spoke);
+    }
+    canvas.drawCircle(Offset.zero, diameter * 0.08, Paint()..color = const Color(0xFF101820));
+    canvas.restore();
+  }
+
+  void _paintTargetDecal(Canvas canvas, Rect body) {
+    final badgeRect = Rect.fromCircle(
+      center: Offset(body.left + body.width * 0.15, body.center.dy),
+      radius: body.height * 0.17,
+    );
+    final badge = Paint()
+      ..shader = const RadialGradient(colors: [AppTheme.accent, Color(0xFFFFA502)]).createShader(badgeRect);
+    canvas.drawCircle(badgeRect.center, badgeRect.width / 2, badge);
+    canvas.drawCircle(
+      badgeRect.center,
+      badgeRect.width / 2,
+      Paint()
+        ..color = Colors.white.withOpacity(0.65)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+
+    final textPainter = TextPainter(
+      text: const TextSpan(text: '★', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    textPainter.paint(canvas, badgeRect.center - Offset(textPainter.width / 2, textPainter.height / 2));
+  }
+
+  void _paintSelectedOutline(Canvas canvas, Rect body, double radius) {
+    final outline = Paint()
+      ..color = AppTheme.accent.withOpacity(0.55 + pulse * 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2;
+    canvas.drawRRect(RRect.fromRectAndRadius(body.inflate(2), Radius.circular(radius)), outline);
+  }
+
+  Color _lighten(Color color, double amount) {
+    return Color.lerp(color, Colors.white, amount) ?? color;
+  }
+
   @override
-  bool shouldRepaint(covariant WheelSpokePainter oldDelegate) => oldDelegate.rotation != rotation;
+  bool shouldRepaint(covariant RealCarPainter oldDelegate) {
+    return oldDelegate.car != car ||
+        oldDelegate.wheelRotation != wheelRotation ||
+        oldDelegate.selected != selected ||
+        oldDelegate.dragging != dragging ||
+        oldDelegate.pulse != pulse;
+  }
 }

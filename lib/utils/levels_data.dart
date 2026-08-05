@@ -36,8 +36,40 @@ class LevelsRepository {
       _level28(),
       _level29(),
       _level30(),
+      _level31(),
+      _level32(),
+      _level33(),
+      _level34(),
+      _level35(),
+      _level36(),
+      _level37(),
+      _level38(),
+      _level39(),
+      _level40(),
+      _level41(),
+      _level42(),
+      _level43(),
+      _level44(),
+      _level45(),
+      _level46(),
+      _level47(),
+      _level48(),
+      _level49(),
+      _level50(),
+      _level51(),
+      _level52(),
+      _level53(),
+      _level54(),
+      _level55(),
+      _level56(),
+      _level57(),
+      _level58(),
+      _level59(),
+      _level60(),
     ];
   }
+
+  static int get totalLevels => allLevels.length;
 
   static Color _c(int index) => AppTheme.carColors[index % AppTheme.carColors.length];
   static Color _d(int index) => AppTheme.carColors[index % AppTheme.carColors.length].withOpacity(0.85);
@@ -192,7 +224,7 @@ class LevelsRepository {
     );
   }
 
-  // For brevity, generate more levels algorithmically but with hand-tuned seeds for 9-30
+  // Production tour: deterministic generated levels with hand-tuned names, par targets, and seeds for 9-60.
   static GameLevel _level9() => _genLevel(9, "Spin Cycle", 20, 3, seed: 9);
   static GameLevel _level10() => _genLevel(10, "Drift Zone", 22, 3, seed: 10);
   static GameLevel _level11() => _genLevel(11, "Turbo Trap", 25, 4, seed: 11);
@@ -215,62 +247,140 @@ class LevelsRepository {
   static GameLevel _level28() => _genLevel(28, "Suzuka", 48, 5, seed: 28);
   static GameLevel _level29() => _genLevel(29, "Ultimate", 50, 5, seed: 29);
   static GameLevel _level30() => _genLevel(30, "Wheel Out Master", 55, 5, seed: 30);
+  static GameLevel _level31() => _genLevel(31, "Rainy Avenue", 28, 3, seed: 31);
+  static GameLevel _level32() => _genLevel(32, "Metro Gridlock", 30, 4, seed: 32);
+  static GameLevel _level33() => _genLevel(33, "Taxi Stand", 31, 4, seed: 33);
+  static GameLevel _level34() => _genLevel(34, "Neon Crossing", 32, 4, seed: 34);
+  static GameLevel _level35() => _genLevel(35, "Underground Lot", 33, 4, seed: 35);
+  static GameLevel _level36() => _genLevel(36, "Harbor Exit", 34, 4, seed: 36);
+  static GameLevel _level37() => _genLevel(37, "Midnight Jam", 35, 4, seed: 37);
+  static GameLevel _level38() => _genLevel(38, "Express Lane", 36, 4, seed: 38);
+  static GameLevel _level39() => _genLevel(39, "Stacked Garage", 37, 4, seed: 39);
+  static GameLevel _level40() => _genLevel(40, "Rush Hour Pro", 38, 5, seed: 40);
+  static GameLevel _level41() => _genLevel(41, "Service Road", 39, 5, seed: 41);
+  static GameLevel _level42() => _genLevel(42, "Airport Pickup", 40, 5, seed: 42);
+  static GameLevel _level43() => _genLevel(43, "Foggy Ramp", 41, 5, seed: 43);
+  static GameLevel _level44() => _genLevel(44, "Double Parked", 42, 5, seed: 44);
+  static GameLevel _level45() => _genLevel(45, "Police Escort", 43, 5, seed: 45);
+  static GameLevel _level46() => _genLevel(46, "Legend Street", 44, 5, seed: 46);
+  static GameLevel _level47() => _genLevel(47, "Canyon Lot", 45, 5, seed: 47);
+  static GameLevel _level48() => _genLevel(48, "Storm Drain", 46, 5, seed: 48);
+  static GameLevel _level49() => _genLevel(49, "VIP Garage", 47, 5, seed: 49);
+  static GameLevel _level50() => _genLevel(50, "Impossible Turn", 48, 5, seed: 50);
+  static GameLevel _level51() => _genLevel(51, "Warehouse Maze", 49, 5, seed: 51);
+  static GameLevel _level52() => _genLevel(52, "Highway Merge", 50, 5, seed: 52);
+  static GameLevel _level53() => _genLevel(53, "Final Checkpoint", 51, 5, seed: 53);
+  static GameLevel _level54() => _genLevel(54, "Carbon Alley", 52, 5, seed: 54);
+  static GameLevel _level55() => _genLevel(55, "Elite Convoy", 53, 5, seed: 55);
+  static GameLevel _level56() => _genLevel(56, "Overnight Shift", 54, 5, seed: 56);
+  static GameLevel _level57() => _genLevel(57, "No Margin", 55, 5, seed: 57);
+  static GameLevel _level58() => _genLevel(58, "Super Speedway", 56, 5, seed: 58);
+  static GameLevel _level59() => _genLevel(59, "The Last Gate", 58, 5, seed: 59);
+  static GameLevel _level60() => _genLevel(60, "World Champion", 60, 5, seed: 60);
 
   static GameLevel _genLevel(int id, String name, int par, int diff, {required int seed}) {
-    // Deterministic pseudo random level generator ensuring solvable-ish patterns
+    // Deterministic level factory with a guaranteed escape backbone:
+    // the red wheel always has 1-3 movable vertical blockers in the exit lane,
+    // while extra traffic fills the garage without occupying the blockers' routes.
     final rnd = _PseudoRandom(seed * 9973);
-    int exitRow = 2;
-    List<CarModel> cars = [];
-    cars.add(CarModel(id: 'R', x: rnd.nextInt(2), y: exitRow, length: 2, orientation: CarOrientation.horizontal, isTarget: true, color: AppTheme.targetRed, darkColor: AppTheme.targetRedDark));
+    const int size = 6;
+    const int exitRow = 2;
+    final cars = <CarModel>[];
+    final occupied = <String>{};
+    final reserved = <String>{};
 
-    // Track occupied
-    Set<String> occupied = {};
-    void occ(CarModel c) {
-      for (var p in c.occupiedCells()) {
-        occupied.add("${p.x},${p.y}");
+    String key(int x, int y) => '$x,$y';
+
+    void reserveColumn(int x) {
+      for (int y = 0; y < size; y++) {
+        reserved.add(key(x, y));
       }
     }
-    occ(cars[0]);
 
-    int carCount = 5 + (diff * 2) + rnd.nextInt(3);
+    bool place(CarModel car, {bool ignoreReserved = false}) {
+      for (final point in car.occupiedCells()) {
+        if (point.x < 0 || point.x >= size || point.y < 0 || point.y >= size) return false;
+        final cell = key(point.x, point.y);
+        if (occupied.contains(cell)) return false;
+        if (!ignoreReserved && reserved.contains(cell)) return false;
+      }
+      cars.add(car);
+      for (final point in car.occupiedCells()) {
+        occupied.add(key(point.x, point.y));
+      }
+      return true;
+    }
+
+    final targetX = rnd.nextInt(2);
+    place(
+      CarModel(
+        id: 'R',
+        x: targetX,
+        y: exitRow,
+        length: 2,
+        orientation: CarOrientation.horizontal,
+        isTarget: true,
+        color: AppTheme.targetRed,
+        darkColor: AppTheme.targetRedDark,
+      ),
+      ignoreReserved: true,
+    );
+
+    final blockerColumns = <int>{(targetX + 2).clamp(2, 4).toInt(), 5};
+    if (diff >= 5) blockerColumns.add(4);
+    int blockerIndex = 0;
+    for (final column in blockerColumns) {
+      reserveColumn(column);
+      final downMover = blockerIndex.isEven;
+      place(
+        CarModel(
+          id: 'B$blockerIndex',
+          x: column,
+          y: downMover ? 1 : 2,
+          length: 2,
+          orientation: CarOrientation.vertical,
+          color: _c(seed + blockerIndex),
+          darkColor: _d(seed + blockerIndex),
+        ),
+        ignoreReserved: true,
+      );
+      blockerIndex++;
+    }
+
+    // Keep a cinematic exit tunnel clear except for the designed blockers.
+    for (int x = targetX + 2; x < size; x++) {
+      reserved.add(key(x, exitRow));
+    }
+
+    final desiredTraffic = (6 + diff * 2 + rnd.nextInt(3)).clamp(8, 15).toInt();
     int attempts = 0;
     int idx = 0;
-    while (cars.length < carCount && attempts < 200) {
+    while (cars.length < desiredTraffic && attempts < 280) {
       attempts++;
-      bool horiz = rnd.nextBool();
-      int len = rnd.nextBool() ? 2 : 3;
-      int x = rnd.nextInt(6 - (horiz ? len : 1));
-      int y = rnd.nextInt(6 - (horiz ? 1 : len));
+      final horiz = rnd.nextBool();
+      final len = rnd.nextInt(5) == 0 ? 3 : 2;
+      final x = rnd.nextInt(size - (horiz ? len : 1) + 1);
+      final y = rnd.nextInt(size - (horiz ? 1 : len) + 1);
 
-      // avoid blocking exit completely at start for easy filter
-      if (horiz && y == exitRow && x < 2) continue;
+      // Never create another permanent blocker in the red car exit row.
+      if (horiz && y == exitRow && x + len > targetX + 1) continue;
 
-      CarModel temp = CarModel(
+      final car = CarModel(
         id: 'C$idx',
         x: x,
         y: y,
         length: len,
         orientation: horiz ? CarOrientation.horizontal : CarOrientation.vertical,
-        color: _c(idx + seed),
-        darkColor: _d(idx + seed),
+        color: _c(idx + seed + 4),
+        darkColor: _d(idx + seed + 4),
       );
 
-      bool clash = false;
-      for (var p in temp.occupiedCells()) {
-        if (occupied.contains("${p.x},${p.y}")) { clash = true; break; }
-        if (p.x < 0 || p.x >= 6 || p.y < 0 || p.y >= 6) { clash = true; break; }
-      }
-      if (!clash) {
-        cars.add(temp);
-        occ(temp);
-        idx++;
-      }
+      if (place(car)) idx++;
     }
 
     return GameLevel(id: id, name: name, exitRow: exitRow, cars: cars, parMoves: par, difficulty: diff);
   }
 }
-
 class _PseudoRandom {
   int _seed;
   _PseudoRandom(this._seed);

@@ -1,5 +1,5 @@
 name: wheel_out_game2
-description: "Perfect Wheel Out - Premium Animated Parking Puzzle Game. Slide cars, free the red wheel, master 30 handcrafted levels with fluid Flutter animations."
+description: "Perfect Wheel Out - Production-style animated parking puzzle game. Slide cars, free the red wheel, build your profile, unlock rewards, and master 60 levels with fluid Flutter animations."
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  shared_preferences: ^2.3.3
 
 dev_dependencies:
   flutter_test:

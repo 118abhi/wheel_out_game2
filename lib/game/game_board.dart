@@ -29,7 +29,6 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
   String? draggingCarId;
   double dragStartPos = 0;
   double dragCurrentPos = 0;
-  int dragStartCarPos = 0; // x or y
   double wheelRotation = 0;
 
   late AnimationController _shakeController;
@@ -112,6 +111,8 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
                 _buildBoardBackground(cellSize, boardSize),
                 _buildGridLines(cellSize, boardSize),
                 _buildExit(cellSize, boardSize),
+                if (selectedCarId != null && draggingCarId == null) _buildMoveGuide(cellSize),
+                if (draggingCarId != null) _buildDragTrail(cellSize),
                 // Cars
                 ...widget.gameState.cars.map((car) => _buildCar(car, cellSize)),
                 if (_isExiting && _exitingCar != null) _buildExitingCar(cellSize),
@@ -154,25 +155,54 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
   Widget _buildExit(double cellSize, double boardSize) {
     final exitRow = widget.gameState.level.exitRow;
     return Positioned(
-      left: boardSize - cellSize * 0.15,
+      left: boardSize - cellSize * 0.28,
       top: exitRow * cellSize,
-      width: cellSize * 0.15,
+      width: cellSize * 0.28,
       height: cellSize,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.4)],
-          ),
-          boxShadow: [
-            BoxShadow(color: AppTheme.accent.withOpacity(0.6), blurRadius: 12, spreadRadius: 2),
-          ],
+      child: AnimatedBuilder(
+        animation: _smokeController,
+        builder: (_, __) => CustomPaint(
+          painter: ExitGatePainter(pulse: _smokeController.value),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.arrow_forward, color: AppTheme.accent, size: cellSize * 0.4),
-            Container(height: 4, width: cellSize * 0.6, color: AppTheme.accent),
-          ],
+      ),
+    );
+  }
+
+  CarModel? _findCar(String? id) {
+    for (final item in widget.gameState.cars) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
+
+  Widget _buildMoveGuide(double cellSize) {
+    final car = _findCar(selectedCarId);
+    if (car == null) return const SizedBox.shrink();
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: CustomPaint(
+          painter: MoveGuidePainter(
+            car: car,
+            cellSize: cellSize,
+            negativeSteps: widget.gameState.maxMoveInDirection(car, -1).abs(),
+            positiveSteps: widget.gameState.maxMoveInDirection(car, 1).abs(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDragTrail(double cellSize) {
+    final car = _findCar(draggingCarId);
+    if (car == null) return const SizedBox.shrink();
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: CustomPaint(
+          painter: DragTrailPainter(
+            car: car,
+            cellSize: cellSize,
+            dragOffset: dragCurrentPos - dragStartPos,
+          ),
         ),
       ),
     );
@@ -190,16 +220,14 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
     double animY = car.animY;
 
     if (isDragging) {
-      double deltaCells = (dragCurrentPos - dragStartPos) / cellSize;
-      int wholeDelta = deltaCells.round(); // for clamping visualization we use raw delta too
-      // But we show fractional drag with clamping
+      // Show fractional drag with hard clamping for a polished, physical feel.
       double rawOffset = dragCurrentPos - dragStartPos;
       // calculate max allowed in pixels
       int maxNeg = widget.gameState.maxMoveInDirection(car, -1);
       int maxPos = widget.gameState.maxMoveInDirection(car, 1);
       double minPx = maxNeg * cellSize.toDouble();
       double maxPx = maxPos * cellSize.toDouble();
-      double clampedPx = rawOffset.clamp(minPx, maxPx);
+      double clampedPx = rawOffset.clamp(minPx, maxPx).toDouble();
 
       if (car.isHorizontal) {
         animX = car.x + clampedPx / cellSize;
@@ -240,7 +268,6 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
               dragStartPos = details.globalPosition.dy;
             }
             dragCurrentPos = dragStartPos;
-            dragStartCarPos = car.isHorizontal ? car.x : car.y;
           });
           widget.onCarSelected(car);
         },
@@ -277,7 +304,7 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
             // clamp to allowed range
             int maxNeg = widget.gameState.maxMoveInDirection(car, -1);
             int maxPos = widget.gameState.maxMoveInDirection(car, 1);
-            deltaCells = deltaCells.clamp(maxNeg, maxPos);
+            deltaCells = deltaCells.clamp(maxNeg, maxPos).toInt();
             if (deltaCells != 0) {
               CarModel newCar = car.copyWith(
                 x: car.isHorizontal ? car.x + deltaCells : car.x,
@@ -404,17 +431,103 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
   }
 }
 
+class ExitGatePainter extends CustomPainter {
+  final double pulse;
+
+  ExitGatePainter({required this.pulse});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final glow = Paint()
+      ..color = AppTheme.accent.withOpacity(0.18 + math.sin(pulse * math.pi * 2).abs() * 0.18)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawRect(Offset.zero & size, glow);
+
+    final gatePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.white.withOpacity(0.92), Colors.white.withOpacity(0.22)],
+      ).createShader(Offset.zero & size);
+    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(size.width * 0.25)), gatePaint);
+
+    final chevron = Paint()
+      ..color = AppTheme.accent.withOpacity(0.95)
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 3; i++) {
+      final y = size.height * (0.25 + i * 0.24);
+      final path = Path()
+        ..moveTo(size.width * 0.22, y - size.height * 0.09)
+        ..lineTo(size.width * 0.62, y)
+        ..lineTo(size.width * 0.22, y + size.height * 0.09);
+      canvas.drawPath(path, chevron);
+    }
+
+    final barrier = Paint()
+      ..color = const Color(0xFF111923).withOpacity(0.55)
+      ..strokeWidth = 1.4;
+    canvas.drawLine(Offset(size.width * 0.08, 0), Offset(size.width * 0.08, size.height), barrier);
+    canvas.drawLine(Offset(size.width * 0.88, 0), Offset(size.width * 0.88, size.height), barrier);
+  }
+
+  @override
+  bool shouldRepaint(covariant ExitGatePainter oldDelegate) => oldDelegate.pulse != pulse;
+}
+
 class AsphaltPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.white.withOpacity(0.04);
     final rand = math.Random(42);
-    for (int i = 0; i < 80; i++) {
-      double x = rand.nextDouble() * size.width;
-      double y = rand.nextDouble() * size.height;
-      double r = rand.nextDouble() * 1.5;
-      canvas.drawCircle(Offset(x, y), r, paint);
+    final speckPaint = Paint()..color = Colors.white.withOpacity(0.045);
+    for (int i = 0; i < 120; i++) {
+      final x = rand.nextDouble() * size.width;
+      final y = rand.nextDouble() * size.height;
+      final r = rand.nextDouble() * 1.7;
+      canvas.drawCircle(Offset(x, y), r, speckPaint);
     }
+
+    final stainPaint = Paint()
+      ..color = Colors.black.withOpacity(0.10)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    for (int i = 0; i < 5; i++) {
+      final center = Offset(rand.nextDouble() * size.width, rand.nextDouble() * size.height);
+      canvas.drawOval(Rect.fromCenter(center: center, width: 28 + rand.nextDouble() * 46, height: 14 + rand.nextDouble() * 30), stainPaint);
+    }
+
+    final lanePaint = Paint()
+      ..color = AppTheme.accent.withOpacity(0.10)
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+    for (double y = 18; y < size.height; y += 54) {
+      canvas.drawLine(Offset(size.width * 0.08, y), Offset(size.width * 0.28, y), lanePaint);
+      canvas.drawLine(Offset(size.width * 0.72, y + 22), Offset(size.width * 0.92, y + 22), lanePaint);
+    }
+
+    final curbPaint = Paint()
+      ..shader = LinearGradient(colors: [AppTheme.accent.withOpacity(0.42), Colors.white.withOpacity(0.24)]).createShader(Offset.zero & size)
+      ..strokeWidth = 3;
+    canvas.drawLine(const Offset(0, 2), Offset(size.width, 2), curbPaint);
+    canvas.drawLine(Offset(2, 0), Offset(2, size.height), curbPaint);
+    canvas.drawLine(Offset(0, size.height - 2), Offset(size.width, size.height - 2), curbPaint);
+
+    final crackPaint = Paint()
+      ..color = Colors.black.withOpacity(0.16)
+      ..strokeWidth = 1.1
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 9; i++) {
+      final start = Offset(rand.nextDouble() * size.width, rand.nextDouble() * size.height);
+      final path = Path()..moveTo(start.dx, start.dy);
+      for (int j = 0; j < 3; j++) {
+        path.relativeLineTo((rand.nextDouble() - 0.5) * 20, (rand.nextDouble() - 0.5) * 20);
+      }
+      canvas.drawPath(path, crackPaint);
+    }
+
+    final puddlePaint = Paint()
+      ..shader = RadialGradient(colors: [AppTheme.secondary.withOpacity(0.10), Colors.transparent]).createShader(Offset.zero & size);
+    canvas.drawOval(Rect.fromCenter(center: Offset(size.width * 0.24, size.height * 0.72), width: size.width * 0.26, height: size.height * 0.10), puddlePaint);
+    canvas.drawOval(Rect.fromCenter(center: Offset(size.width * 0.76, size.height * 0.18), width: size.width * 0.20, height: size.height * 0.08), puddlePaint);
   }
 
   @override
@@ -460,10 +573,155 @@ class GridPainter extends CustomPainter {
         // top-right
         canvas.drawLine(Offset(left + cellSize - l, top), Offset(left + cellSize, top), dashPaint);
         canvas.drawLine(Offset(left + cellSize, top), Offset(left + cellSize, top + l), dashPaint);
+
+        final bayText = TextPainter(
+          text: TextSpan(
+            text: '${String.fromCharCode(65 + y)}${x + 1}',
+            style: TextStyle(fontSize: cellSize * 0.12, fontWeight: FontWeight.w800, color: Colors.white.withOpacity(0.10)),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        bayText.paint(canvas, Offset(left + cellSize * 0.08, top + cellSize * 0.74));
+      }
+    }
+
+    final exitPaint = Paint()
+      ..color = AppTheme.accent.withOpacity(0.18)
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    final exitY = 2 * cellSize + cellSize / 2;
+    for (int i = 0; i < 3; i++) {
+      final x = cellSize * (3.2 + i * 0.55);
+      final path = Path()
+        ..moveTo(x, exitY - cellSize * 0.12)
+        ..lineTo(x + cellSize * 0.20, exitY)
+        ..lineTo(x, exitY + cellSize * 0.12);
+      canvas.drawPath(path, exitPaint);
+    }
+
+    final stopPaint = Paint()
+      ..color = Colors.white.withOpacity(0.20)
+      ..strokeWidth = 1.7;
+    canvas.drawLine(Offset(cellSize * (gridSize - 0.78), 2 * cellSize + cellSize * 0.18), Offset(cellSize * (gridSize - 0.78), 3 * cellSize - cellSize * 0.18), stopPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class MoveGuidePainter extends CustomPainter {
+  final CarModel car;
+  final double cellSize;
+  final int negativeSteps;
+  final int positiveSteps;
+
+  MoveGuidePainter({required this.car, required this.cellSize, required this.negativeSteps, required this.positiveSteps});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final guidePaint = Paint()
+      ..color = AppTheme.secondary.withOpacity(0.14)
+      ..style = PaintingStyle.fill;
+    final borderPaint = Paint()
+      ..color = AppTheme.secondary.withOpacity(0.40)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    final arrowPaint = Paint()
+      ..color = AppTheme.accent.withOpacity(0.85)
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    void drawCell(int x, int y) {
+      final rect = Rect.fromLTWH(x * cellSize + cellSize * 0.10, y * cellSize + cellSize * 0.10, cellSize * 0.80, cellSize * 0.80);
+      final rrect = RRect.fromRectAndRadius(rect, Radius.circular(cellSize * 0.16));
+      canvas.drawRRect(rrect, guidePaint);
+      canvas.drawRRect(rrect, borderPaint);
+    }
+
+    if (car.isHorizontal) {
+      for (int step = 1; step <= negativeSteps; step++) {
+        drawCell(car.x - step, car.y);
+      }
+      for (int step = 1; step <= positiveSteps; step++) {
+        drawCell(car.x + car.length - 1 + step, car.y);
+      }
+      _drawGuideArrow(canvas, Offset((car.x - negativeSteps + 0.35) * cellSize, (car.y + 0.5) * cellSize), false, arrowPaint);
+      _drawGuideArrow(canvas, Offset((car.x + car.length + positiveSteps - 0.35) * cellSize, (car.y + 0.5) * cellSize), true, arrowPaint);
+    } else {
+      for (int step = 1; step <= negativeSteps; step++) {
+        drawCell(car.x, car.y - step);
+      }
+      for (int step = 1; step <= positiveSteps; step++) {
+        drawCell(car.x, car.y + car.length - 1 + step);
+      }
+      _drawGuideArrow(canvas, Offset((car.x + 0.5) * cellSize, (car.y - negativeSteps + 0.35) * cellSize), false, arrowPaint, vertical: true);
+      _drawGuideArrow(canvas, Offset((car.x + 0.5) * cellSize, (car.y + car.length + positiveSteps - 0.35) * cellSize), true, arrowPaint, vertical: true);
+    }
+  }
+
+  void _drawGuideArrow(Canvas canvas, Offset center, bool positive, Paint paint, {bool vertical = false}) {
+    if ((positive ? positiveSteps : negativeSteps) <= 0) return;
+    final size = cellSize * 0.12;
+    final path = Path();
+    if (!vertical) {
+      final dir = positive ? 1 : -1;
+      path.moveTo(center.dx - dir * size, center.dy - size);
+      path.lineTo(center.dx + dir * size, center.dy);
+      path.lineTo(center.dx - dir * size, center.dy + size);
+    } else {
+      final dir = positive ? 1 : -1;
+      path.moveTo(center.dx - size, center.dy - dir * size);
+      path.lineTo(center.dx, center.dy + dir * size);
+      path.lineTo(center.dx + size, center.dy - dir * size);
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant MoveGuidePainter oldDelegate) {
+    return oldDelegate.car != car || oldDelegate.negativeSteps != negativeSteps || oldDelegate.positiveSteps != positiveSteps;
+  }
+}
+
+class DragTrailPainter extends CustomPainter {
+  final CarModel car;
+  final double cellSize;
+  final double dragOffset;
+
+  DragTrailPainter({required this.car, required this.cellSize, required this.dragOffset});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final direction = dragOffset == 0 ? 1.0 : dragOffset.sign;
+    final speed = (dragOffset.abs() / cellSize).clamp(0.0, 1.0).toDouble();
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: car.isHorizontal ? (direction > 0 ? Alignment.centerLeft : Alignment.centerRight) : Alignment.topCenter,
+        end: car.isHorizontal ? (direction > 0 ? Alignment.centerRight : Alignment.centerLeft) : Alignment.bottomCenter,
+        colors: [AppTheme.secondary.withOpacity(0.0), AppTheme.secondary.withOpacity(0.28 * speed)],
+      ).createShader(Offset.zero & size)
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+
+    final baseX = car.x * cellSize + (car.isHorizontal ? 0 : cellSize / 2);
+    final baseY = car.y * cellSize + (car.isHorizontal ? cellSize / 2 : 0);
+    for (int i = 0; i < 6; i++) {
+      final offset = (i + 1) * cellSize * 0.18;
+      if (car.isHorizontal) {
+        final y = baseY + (i - 2.5) * 4;
+        final start = Offset(baseX - direction * offset, y);
+        final end = Offset(baseX - direction * (offset + 22 + speed * 32), y);
+        canvas.drawLine(start, end, paint);
+      } else {
+        final x = baseX + (i - 2.5) * 4;
+        final start = Offset(x, baseY - direction * offset);
+        final end = Offset(x, baseY - direction * (offset + 22 + speed * 32));
+        canvas.drawLine(start, end, paint);
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant DragTrailPainter oldDelegate) => oldDelegate.dragOffset != dragOffset;
 }

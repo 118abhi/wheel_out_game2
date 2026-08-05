@@ -4,7 +4,7 @@ import '../theme/app_theme.dart';
 import '../game/wheel_painter.dart';
 
 class WheelRewardScreen extends StatefulWidget {
-  final VoidCallback onRewardClaimed;
+  final Function(WheelSegment reward) onRewardClaimed;
   final int spinResult;
   const WheelRewardScreen({super.key, required this.onRewardClaimed, required this.spinResult});
 
@@ -179,7 +179,7 @@ class _WheelRewardScreenState extends State<WheelRewardScreen> with TickerProvid
                         onTap: () {
                           if (_hasClaimed) return;
                           setState(() => _hasClaimed = true);
-                          widget.onRewardClaimed();
+                          widget.onRewardClaimed(segments[widget.spinResult % segments.length]);
                         },
                         child: Container(
                           width: 220,
