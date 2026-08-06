@@ -5,6 +5,11 @@ import 'package:flutter/material.dart';
 
 import '../models/player_profile.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animated_parking_background.dart';
+import '../utils/sound_manager.dart';
+import 'daily_challenges_screen.dart';
+import 'car_collection_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final PlayerProfile profile;
@@ -63,26 +68,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         child: SafeArea(
           child: Stack(
             children: [
+              // NEW: Dynamic 3D Animated Background (same as game)
               Positioned.fill(
-                child: AnimatedBuilder(
-                  animation: Listenable.merge([_sceneController, _floatController]),
-                  builder: (_, __) => CustomPaint(
-                    painter: _PremiumHomeScenePainter(
-                      progress: _sceneController.value,
-                      floatValue: _floatController.value,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: const Alignment(0, -0.25),
-                      radius: 1.05,
-                      colors: [Colors.transparent, Colors.black.withOpacity(0.34)],
-                    ),
-                  ),
+                child: AnimatedParkingBackground(
+                  showRoad: true,
+                  intensity: 0.88,
+                  child: const SizedBox.expand(),
                 ),
               ),
               Column(
@@ -181,6 +172,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _HudChip(icon: Icons.toll_rounded, value: '${widget.profile.coins}', color: AppTheme.accent),
           const SizedBox(width: 8),
           _HudChip(icon: Icons.lightbulb_rounded, value: '${widget.profile.hints}', color: AppTheme.secondary),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () {
+              SoundManager().toggleSound();
+              SoundManager().playClick();
+            },
+            child: _HudChip(
+              icon: SoundManager().soundEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              value: '',
+              color: AppTheme.secondary,
+            ),
+          ),
         ],
       ),
     );
@@ -270,7 +273,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             label: 'PLAY LEVEL ${widget.profile.unlockedLevel}',
             icon: Icons.play_arrow_rounded,
             gradient: const [AppTheme.primary, AppTheme.secondary],
-            onTap: widget.onPlay,
+            onTap: () {
+              SoundManager().playClick();
+              widget.onPlay();
+            },
             delay: 0,
           ),
           const SizedBox(height: 14),
@@ -282,8 +288,37 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   icon: Icons.grid_view_rounded,
                   gradient: [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.05)],
                   isOutlined: true,
-                  onTap: widget.onLevels,
+                  onTap: () {
+                    SoundManager().playClick();
+                    widget.onLevels();
+                  },
                   delay: 100,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _AnimatedButton(
+                  label: 'DAILY',
+                  icon: Icons.today_rounded,
+                  gradient: [AppTheme.accent.withOpacity(0.3), AppTheme.accent.withOpacity(0.1)],
+                  isOutlined: true,
+                  onTap: () {
+                    SoundManager().playClick();
+                    // Navigate to daily challenges
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DailyChallengesScreen(
+                          onLevelSelected: (levelId) {
+                            Navigator.pop(context);
+                            widget.onPlay(); // This will be improved later
+                          },
+                          onBack: () => Navigator.pop(context),
+                        ),
+                      ),
+                    );
+                  },
+                  delay: 160,
                 ),
               ),
               const SizedBox(width: 12),
@@ -293,8 +328,49 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   icon: Icons.badge_rounded,
                   gradient: [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.05)],
                   isOutlined: true,
-                  onTap: widget.onProfile,
+                  onTap: () {
+                    SoundManager().playClick();
+                    widget.onProfile();
+                  },
                   delay: 160,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _AnimatedButton(
+                  label: 'CARS',
+                  icon: Icons.directions_car_rounded,
+                  gradient: [AppTheme.secondary.withOpacity(0.3), AppTheme.secondary.withOpacity(0.1)],
+                  isOutlined: true,
+                  onTap: () {
+                    SoundManager().playClick();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CarCollectionScreen(onBack: () => Navigator.pop(context)),
+                      ),
+                    );
+                  },
+                  delay: 220,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _AnimatedButton(
+                  label: 'SETTINGS',
+                  icon: Icons.settings_rounded,
+                  gradient: [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.05)],
+                  isOutlined: true,
+                  onTap: () {
+                    SoundManager().playClick();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SettingsScreen(onBack: () => Navigator.pop(context)),
+                      ),
+                    );
+                  },
+                  delay: 280,
                 ),
               ),
             ],

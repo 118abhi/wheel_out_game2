@@ -6,6 +6,7 @@ import '../models/car.dart';
 import '../game/game_board.dart';
 import '../theme/app_theme.dart';
 import '../widgets/animated_parking_background.dart';
+import '../utils/sound_manager.dart';
 import 'win_screen.dart';
 
 class GameScreen extends StatefulWidget {
@@ -52,12 +53,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late AnimationController _boardScaleController;
   late Animation<double> _boardScale;
 
+  // Power-ups
+  int _activePowerUps = 3;
+  bool _timeFrozen = false;
+  bool _doubleMoveActive = false;
+
   @override
   void initState() {
     super.initState();
     _gameState = GameState(level: widget.level, cars: _levelCars());
     _initialState = _gameState.copyWith();
     _hintCount = widget.hints;
+
+    SoundManager().init();
+    SoundManager().playBackgroundMusic();
 
     _hintController = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
     _hintPulse = Tween<double>(begin: 0.9, end: 1.1).animate(CurvedAnimation(parent: _hintController, curve: Curves.easeInOut));
@@ -129,6 +138,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _showingHint = false;
     });
     HapticFeedback.selectionClick();
+    SoundManager().playCarMove();
 
     if (_gameState.isSpecificallyWon()) {
       // slight delay before win show to allow exit anim? Actually GameBoard will trigger onWin when exiting
@@ -142,6 +152,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     else if (_gameState.moves <= widget.level.parMoves + 4) stars = 2;
 
     HapticFeedback.heavyImpact();
+    SoundManager().playWin();
+    SoundManager().stopBackgroundMusic();
     widget.onLevelComplete(stars, _gameState.moves);
     setState(() => _showWin = true);
   }
@@ -163,6 +175,40 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _showingHint = false;
     });
     _boardScaleController.forward(from: 0);
+  }
+
+  // ==================== POWER-UPS ====================
+  void _useTimeFreeze() {
+    setState(() {
+      _timeFrozen = true;
+      _activePowerUps--;
+    });
+    HapticFeedback.mediumImpact();
+    SoundManager().playClick();
+
+    Future.delayed(const Duration(seconds: 8), () {
+      if (mounted) {
+        setState(() => _timeFrozen = false);
+      }
+    });
+  }
+
+  void _useDoubleMove() {
+    // This would allow moving two cars in one action
+    // For now we'll just show a visual indicator
+    setState(() {
+      _activePowerUps--;
+    });
+    HapticFeedback.mediumImpact();
+    SoundManager().playClick();
+
+    // Show a toast
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Double Move activated! Move two cars'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _showHint() {
@@ -190,6 +236,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 });
                 widget.onHintUsed();
                 HapticFeedback.lightImpact();
+                SoundManager().playHint();
                 return;
               }
             }
@@ -211,6 +258,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         });
         widget.onHintUsed();
         HapticFeedback.lightImpact();
+        SoundManager().playHint();
         return;
       }
     }
@@ -229,8 +277,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         ),
         child: SafeArea(
           child: AnimatedParkingBackground(
-            showRoad: false,
-            intensity: 0.45,
+            showRoad: true,
+            intensity: 1.0,
+            weatherType: widget.level.weather?.type,
             child: Stack(
               children: [
               Column(
@@ -273,7 +322,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         IconButton(onPressed: _reset, icon: const Icon(Icons.refresh_rounded), style: IconButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.08))),
                         const SizedBox(width: 6),
                         IconButton(
-                          onPressed: () => setState(() => _showPause = true),
+                          onPressed: () {
+                            SoundManager().playClick();
+                            setState(() => _showPause = true);
+                          },
                           icon: const Icon(Icons.pause_rounded),
                           style: IconButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.08)),
                         ),
@@ -725,6 +777,37 @@ class _BottomButton extends StatelessWidget {
               Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5)),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PowerUpButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _PowerUpButton({required this.label, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.accent.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.accent.withOpacity(0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppTheme.accent, size: 18),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w900, fontSize: 12)),
+          ],
         ),
       ),
     );

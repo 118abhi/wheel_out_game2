@@ -53,8 +53,8 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> with TickerProvid
         ),
         child: SafeArea(
           child: AnimatedParkingBackground(
-            showRoad: false,
-            intensity: 0.55,
+            showRoad: true,
+            intensity: 0.88,
             child: Column(
               children: [
                 Padding(

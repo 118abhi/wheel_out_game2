@@ -153,19 +153,32 @@ class RealCarPainter extends CustomPainter {
   }
 
   void _paintUnderGlow(Canvas canvas, Size size, Rect body) {
+    // Soft shadow under car
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(dragging ? 0.35 : 0.22)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      ..color = Colors.black.withOpacity(dragging ? 0.42 : 0.28)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(body.shift(Offset(0, size.height * 0.08)), Radius.circular(size.height * 0.22)),
+      RRect.fromRectAndRadius(body.shift(Offset(0, size.height * 0.10)), Radius.circular(size.height * 0.24)),
       shadowPaint,
+    );
+
+    // Ground reflection
+    final groundRef = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.black.withOpacity(0.12), Colors.transparent],
+      ).createShader(Rect.fromLTWH(body.left, body.bottom + size.height * 0.02, body.width, size.height * 0.25));
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left, body.bottom + size.height * 0.02, body.width, size.height * 0.18), Radius.circular(size.height * 0.18)),
+      groundRef,
     );
 
     if (car.isTarget || selected) {
       final glow = Paint()
-        ..color = (car.isTarget ? AppTheme.accent : car.color).withOpacity(0.10 + pulse * 0.12)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-      canvas.drawRRect(RRect.fromRectAndRadius(body.inflate(size.height * 0.08), Radius.circular(size.height * 0.3)), glow);
+        ..color = (car.isTarget ? AppTheme.accent : car.color).withOpacity(0.14 + pulse * 0.18)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
+      canvas.drawRRect(RRect.fromRectAndRadius(body.inflate(size.height * 0.10), Radius.circular(size.height * 0.32)), glow);
     }
   }
 
@@ -182,24 +195,42 @@ class RealCarPainter extends CustomPainter {
       ..quadraticBezierTo(body.left, body.top, body.left + radius, body.top)
       ..close();
 
+    // Enhanced metallic paint with multiple layers
     final basePaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          _lighten(car.color, 0.18),
+          _lighten(car.color, 0.32),
+          _lighten(car.color, 0.12),
           car.color,
           car.darkColor,
+          _darken(car.color, 0.22),
         ],
-        stops: const [0.0, 0.48, 1.0],
+        stops: const [0.0, 0.18, 0.42, 0.68, 1.0],
       ).createShader(body);
     canvas.drawPath(bodyPath, basePaint);
+
+    // Metallic specular highlights
+    final metalSpec = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.45),
+          Colors.white.withOpacity(0.08),
+          Colors.transparent,
+          car.color.withOpacity(0.12),
+        ],
+        stops: const [0.0, 0.22, 0.55, 1.0],
+      ).createShader(body);
+    canvas.drawPath(bodyPath, metalSpec);
 
     final sidePaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Colors.transparent, Colors.black.withOpacity(0.18)],
+        colors: [Colors.transparent, Colors.black.withOpacity(0.26)],
       ).createShader(body);
     canvas.drawPath(bodyPath, sidePaint);
 
@@ -207,16 +238,29 @@ class RealCarPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Colors.white.withOpacity(0.38), Colors.white.withOpacity(0.05), Colors.transparent],
-        stops: const [0.0, 0.38, 1.0],
+        colors: [Colors.white.withOpacity(0.42), Colors.white.withOpacity(0.09), Colors.transparent],
+        stops: const [0.0, 0.34, 1.0],
       ).createShader(body);
     canvas.drawPath(bodyPath, highlightPaint);
 
+    // Additional chrome edge
+    final chromeEdge = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.white.withOpacity(0.55), Colors.transparent],
+      ).createShader(Rect.fromLTWH(body.left, body.top, body.width, body.height * 0.32));
+    canvas.drawPath(bodyPath, chromeEdge);
+
     final border = Paint()
-      ..color = Colors.white.withOpacity(0.34)
+      ..color = Colors.white.withOpacity(0.38)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
+      ..strokeWidth = 1.4;
     canvas.drawPath(bodyPath, border);
+  }
+
+  Color _darken(Color color, double amount) {
+    return Color.lerp(color, Colors.black, amount) ?? color;
   }
 
   void _paintPanels(Canvas canvas, Rect body) {
@@ -267,15 +311,28 @@ class RealCarPainter extends CustomPainter {
   }
 
   void _paintVehicleSpecificDetails(Canvas canvas, Rect body) {
-    final seed = _styleSeed;
-    if (car.length > 2) {
-      _paintVanOrTruckDetails(canvas, body, seed);
-    } else if (seed % 3 == 0) {
-      _paintSportDetails(canvas, body);
-    } else if (seed % 3 == 1) {
-      _paintSuvDetails(canvas, body);
-    } else {
-      _paintHatchbackDetails(canvas, body);
+    final type = car.carType;
+
+    switch (type) {
+      case CarType.suv:
+        _paintSuvDetails(canvas, body);
+        break;
+      case CarType.truck:
+        _paintVanOrTruckDetails(canvas, body, 2);
+        break;
+      case CarType.police:
+        _paintPoliceDetails(canvas, body);
+        break;
+      case CarType.sports:
+        _paintSportDetails(canvas, body);
+        break;
+      case CarType.taxi:
+        _paintTaxiDetails(canvas, body);
+        break;
+      case CarType.sedan:
+      default:
+        _paintHatchbackDetails(canvas, body);
+        break;
     }
   }
 
@@ -344,6 +401,71 @@ class RealCarPainter extends CustomPainter {
     );
   }
 
+  // === NEW CAR VARIATIONS ===
+
+  void _paintSuvDetails(Canvas canvas, Rect body) {
+    // Roof rails
+    final rail = Paint()
+      ..color = Colors.black.withOpacity(0.38)
+      ..strokeWidth = 1.8;
+    canvas.drawLine(Offset(body.left + body.width * 0.32, body.top + body.height * 0.12), Offset(body.left + body.width * 0.68, body.top + body.height * 0.12), rail);
+    canvas.drawLine(Offset(body.left + body.width * 0.32, body.bottom - body.height * 0.12), Offset(body.left + body.width * 0.68, body.bottom - body.height * 0.12), rail);
+
+    // Side steps
+    final step = Paint()..color = Colors.black.withOpacity(0.28);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.26, body.bottom - body.height * 0.05, body.width * 0.48, body.height * 0.04), Radius.circular(2)), step);
+
+    // SUV roof line
+    final roof = Paint()..color = Colors.white.withOpacity(0.12);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.34, body.top + body.height * 0.16, body.width * 0.32, body.height * 0.34), Radius.circular(body.height * 0.08)),
+      roof,
+    );
+  }
+
+  void _paintPoliceDetails(Canvas canvas, Rect body) {
+    // Police light bar
+    final lightbar = Paint()..color = Colors.blueAccent.withOpacity(0.9);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.26, body.top + body.height * 0.08, body.width * 0.48, body.height * 0.12), Radius.circular(2)),
+      lightbar,
+    );
+
+    // Red + Blue flashing effect
+    final red = Paint()..color = Colors.redAccent.withOpacity(0.85);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.28, body.top + body.height * 0.10, body.width * 0.18, body.height * 0.08), Radius.circular(1)), red);
+
+    final blue = Paint()..color = Colors.blue.withOpacity(0.85);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.54, body.top + body.height * 0.10, body.width * 0.18, body.height * 0.08), Radius.circular(1)), blue);
+
+    // "POLICE" text hint
+    final textPainter = TextPainter(
+      text: const TextSpan(text: 'POLICE', style: TextStyle(color: Colors.white, fontSize: 5.5, fontWeight: FontWeight.w900)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    textPainter.paint(canvas, Offset(body.left + body.width * 0.35, body.top + body.height * 0.26));
+  }
+
+  void _paintTaxiDetails(Canvas canvas, Rect body) {
+    // Taxi roof sign
+    final sign = Paint()..color = Colors.yellowAccent.withOpacity(0.95);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.38, body.top + body.height * 0.08, body.width * 0.24, body.height * 0.14), Radius.circular(2)),
+      sign,
+    );
+
+    // "TAXI" text
+    final tp = TextPainter(
+      text: const TextSpan(text: 'TAXI', style: TextStyle(color: Colors.black, fontSize: 5.2, fontWeight: FontWeight.w900)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(body.left + body.width * 0.395, body.top + body.height * 0.11));
+
+    // Yellow stripe
+    final stripe = Paint()..color = Colors.yellowAccent.withOpacity(0.6);
+    canvas.drawLine(Offset(body.left + body.width * 0.1, body.center.dy), Offset(body.right - body.width * 0.1, body.center.dy), stripe);
+  }
+
   void _paintLicensePlates(Canvas canvas, Rect body) {
     final platePaint = Paint()..color = const Color(0xFFEAEAEA).withOpacity(0.92);
     final front = Rect.fromLTWH(body.right - body.width * 0.036, body.center.dy - body.height * 0.11, body.width * 0.018, body.height * 0.22);
@@ -365,7 +487,7 @@ class RealCarPainter extends CustomPainter {
 
     final cabinFrame = Paint()
       ..shader = LinearGradient(
-        colors: [Colors.black.withOpacity(0.72), Colors.black.withOpacity(0.42)],
+        colors: [Colors.black.withOpacity(0.78), Colors.black.withOpacity(0.48)],
       ).createShader(cabin);
     canvas.drawRRect(cabinRRect, cabinFrame);
 
@@ -374,9 +496,9 @@ class RealCarPainter extends CustomPainter {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Colors.lightBlueAccent.withOpacity(0.86),
-          const Color(0xFF0D47A1).withOpacity(0.78),
-          Colors.black.withOpacity(0.62),
+          Colors.lightBlueAccent.withOpacity(0.92),
+          const Color(0xFF0D47A1).withOpacity(0.82),
+          Colors.black.withOpacity(0.68),
         ],
       ).createShader(cabin.deflate(body.height * 0.06));
     canvas.drawRRect(
@@ -384,9 +506,22 @@ class RealCarPainter extends CustomPainter {
       glassPaint,
     );
 
+    // Glass reflection (realistic window)
+    final glassShine = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Colors.white.withOpacity(0.65), Colors.white.withOpacity(0.15), Colors.transparent],
+        stops: const [0.0, 0.28, 1.0],
+      ).createShader(cabin.deflate(body.height * 0.06));
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(cabin.deflate(body.height * 0.06), Radius.circular(body.height * 0.11)),
+      glassShine,
+    );
+
     final shine = Paint()
       ..shader = LinearGradient(
-        colors: [Colors.white.withOpacity(0.45), Colors.transparent],
+        colors: [Colors.white.withOpacity(0.52), Colors.transparent],
       ).createShader(cabin);
     final shinePath = Path()
       ..moveTo(cabin.left + cabin.width * 0.12, cabin.top + cabin.height * 0.12)
@@ -396,7 +531,8 @@ class RealCarPainter extends CustomPainter {
       ..close();
     canvas.drawPath(shinePath, shine);
 
-    final mirrorPaint = Paint()..color = car.darkColor.withOpacity(0.88);
+    // Side mirrors
+    final mirrorPaint = Paint()..color = car.darkColor.withOpacity(0.92);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(cabin.right - body.width * 0.01, cabin.top - body.height * 0.08, body.width * 0.08, body.height * 0.12),
@@ -411,40 +547,69 @@ class RealCarPainter extends CustomPainter {
       ),
       mirrorPaint,
     );
+
+    // Mirror chrome rim
+    final mirrorChrome = Paint()
+      ..color = Colors.white.withOpacity(0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(cabin.right - body.width * 0.005, cabin.top - body.height * 0.075, body.width * 0.08, body.height * 0.12),
+        Radius.circular(body.height * 0.04),
+      ),
+      mirrorChrome,
+    );
   }
 
   void _paintLightsAndDetails(Canvas canvas, Rect body) {
-    final headlight = Paint()
-      ..color = Colors.white.withOpacity(0.96)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6);
+    // Headlight glows (realistic)
     final headGlow = Paint()
-      ..color = AppTheme.accent.withOpacity(0.16 + pulse * 0.08)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    final tail = Paint()..color = (car.isTarget ? AppTheme.targetRed : Colors.redAccent).withOpacity(0.95);
+      ..color = AppTheme.accent.withOpacity(0.22 + pulse * 0.12)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
+    final headlight = Paint()
+      ..color = Colors.white.withOpacity(0.98)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.8);
 
     final topLamp = Rect.fromLTWH(body.right - body.width * 0.055, body.top + body.height * 0.18, body.width * 0.035, body.height * 0.18);
     final bottomLamp = Rect.fromLTWH(body.right - body.width * 0.055, body.bottom - body.height * 0.36, body.width * 0.035, body.height * 0.18);
-    canvas.drawOval(topLamp.inflate(3), headGlow);
-    canvas.drawOval(bottomLamp.inflate(3), headGlow);
-    canvas.drawRRect(RRect.fromRectAndRadius(topLamp, Radius.circular(body.height * 0.04)), headlight);
-    canvas.drawRRect(RRect.fromRectAndRadius(bottomLamp, Radius.circular(body.height * 0.04)), headlight);
 
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.018, body.top + body.height * 0.18, body.width * 0.028, body.height * 0.18), Radius.circular(body.height * 0.035)),
-      tail,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(body.left + body.width * 0.018, body.bottom - body.height * 0.36, body.width * 0.028, body.height * 0.18), Radius.circular(body.height * 0.035)),
-      tail,
-    );
+    // Headlight reflections
+    canvas.drawOval(topLamp.inflate(7), headGlow);
+    canvas.drawOval(bottomLamp.inflate(7), headGlow);
+    canvas.drawRRect(RRect.fromRectAndRadius(topLamp, Radius.circular(body.height * 0.05)), headlight);
+    canvas.drawRRect(RRect.fromRectAndRadius(bottomLamp, Radius.circular(body.height * 0.05)), headlight);
 
+    // Headlight inner lens
+    final lens = Paint()..color = const Color(0xFFCCE5FF).withOpacity(0.65);
+    canvas.drawRRect(RRect.fromRectAndRadius(topLamp.deflate(1.5), Radius.circular(body.height * 0.03)), lens);
+    canvas.drawRRect(RRect.fromRectAndRadius(bottomLamp.deflate(1.5), Radius.circular(body.height * 0.03)), lens);
+
+    // Taillights
+    final tail = Paint()..color = (car.isTarget ? AppTheme.targetRed : Colors.redAccent).withOpacity(0.96);
+    final tailGlow = Paint()
+      ..color = (car.isTarget ? AppTheme.targetRed : Colors.redAccent).withOpacity(0.38)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+
+    final rearTop = Rect.fromLTWH(body.left + body.width * 0.018, body.top + body.height * 0.18, body.width * 0.028, body.height * 0.18);
+    final rearBottom = Rect.fromLTWH(body.left + body.width * 0.018, body.bottom - body.height * 0.36, body.width * 0.028, body.height * 0.18);
+    canvas.drawOval(rearTop.inflate(4), tailGlow);
+    canvas.drawOval(rearBottom.inflate(4), tailGlow);
+    canvas.drawRRect(RRect.fromRectAndRadius(rearTop, Radius.circular(body.height * 0.04)), tail);
+    canvas.drawRRect(RRect.fromRectAndRadius(rearBottom, Radius.circular(body.height * 0.04)), tail);
+
+    // Grille
     final grille = Paint()
-      ..color = Colors.black.withOpacity(0.35)
-      ..strokeWidth = 1.0;
-    for (int i = 0; i < 3; i++) {
-      final y = body.top + body.height * (0.40 + i * 0.08);
-      canvas.drawLine(Offset(body.right - body.width * 0.06, y), Offset(body.right - body.width * 0.025, y), grille);
+      ..color = Colors.black.withOpacity(0.42)
+      ..strokeWidth = 1.2;
+    for (int i = 0; i < 4; i++) {
+      final y = body.top + body.height * (0.38 + i * 0.09);
+      canvas.drawLine(Offset(body.right - body.width * 0.065, y), Offset(body.right - body.width * 0.022, y), grille);
     }
+
+    // Fog lights / side detail
+    final fog = Paint()..color = Colors.white.withOpacity(0.65);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(body.right - body.width * 0.055, body.center.dy - body.height * 0.05, body.width * 0.018, body.height * 0.10), Radius.circular(2)), fog);
   }
 
   void _paintWheels(Canvas canvas, Size size) {
@@ -474,42 +639,99 @@ class RealCarPainter extends CustomPainter {
   }
 
   void _drawWheel(Canvas canvas, Offset center, double diameter) {
-    final tire = Paint()..color = const Color(0xFF101820);
+    final tire = Paint()..color = const Color(0xFF0F141B);
     final tireEdge = Paint()
-      ..color = const Color(0xFF3A4652)
+      ..color = const Color(0xFF2A3746)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = diameter * 0.12;
+      ..strokeWidth = diameter * 0.13;
     canvas.drawCircle(center, diameter / 2, tire);
-    canvas.drawCircle(center, diameter / 2 - diameter * 0.06, tireEdge);
+    canvas.drawCircle(center, diameter / 2 - diameter * 0.04, tireEdge);
 
+    // Tire sidewall detail
+    final sidewall = Paint()
+      ..color = const Color(0xFF1A222D)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = diameter * 0.055;
+    canvas.drawCircle(center, diameter / 2 - diameter * 0.09, sidewall);
+
+    // Realistic tire tread pattern
     final tread = Paint()
-      ..color = Colors.white.withOpacity(0.09)
-      ..strokeWidth = diameter * 0.035
+      ..color = Colors.white.withOpacity(0.07)
+      ..strokeWidth = diameter * 0.028
       ..strokeCap = StrokeCap.round;
-    for (int i = 0; i < 8; i++) {
-      final angle = wheelRotation + i * math.pi / 4;
-      final start = center + Offset(math.cos(angle), math.sin(angle)) * diameter * 0.36;
-      final end = center + Offset(math.cos(angle), math.sin(angle)) * diameter * 0.47;
+    for (int i = 0; i < 12; i++) {
+      final angle = wheelRotation + i * math.pi / 6;
+      final start = center + Offset(math.cos(angle), math.sin(angle)) * diameter * 0.37;
+      final end = center + Offset(math.cos(angle), math.sin(angle)) * diameter * 0.475;
       canvas.drawLine(start, end, tread);
+    }
+    // Sidewall grooves
+    final groove = Paint()
+      ..color = Colors.black.withOpacity(0.55)
+      ..strokeWidth = diameter * 0.015;
+    for (int i = 0; i < 6; i++) {
+      final angle = wheelRotation * 0.6 + i * math.pi / 3;
+      final start = center + Offset(math.cos(angle), math.sin(angle)) * diameter * 0.31;
+      final end = center + Offset(math.cos(angle), math.sin(angle)) * diameter * 0.40;
+      canvas.drawLine(start, end, groove);
     }
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.rotate(wheelRotation);
 
-    final rim = Paint()
-      ..shader = const RadialGradient(colors: [Color(0xFFE8EEF5), Color(0xFF7F8FA6)]).createShader(Rect.fromCircle(center: Offset.zero, radius: diameter * 0.28));
-    canvas.drawCircle(Offset.zero, diameter * 0.28, rim);
+    // Multi-layer realistic rim
+    // Outer chrome rim
+    final outerRim = Paint()
+      ..shader = RadialGradient(
+        colors: [const Color(0xFFF0F4F8), const Color(0xFF9AA8B8), const Color(0xFF5F6B7A)],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: diameter * 0.33));
+    canvas.drawCircle(Offset.zero, diameter * 0.33, outerRim);
 
+    // Inner rim metallic
+    final innerRim = Paint()
+      ..shader = RadialGradient(
+        colors: [const Color(0xFFE8EEF5), const Color(0xFF6C7A8C), const Color(0xFF3B4754)],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: diameter * 0.27));
+    canvas.drawCircle(Offset.zero, diameter * 0.27, innerRim);
+
+    // Rim highlight ring
+    final rimHighlight = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Colors.white.withOpacity(0.65), Colors.transparent, Colors.black.withOpacity(0.25)],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: diameter * 0.29));
+    canvas.drawCircle(Offset.zero, diameter * 0.29, rimHighlight);
+
+    // Wheel bolts (realistic)
+    final boltPaint = Paint()..color = const Color(0xFF1E272E);
+    for (int i = 0; i < 5; i++) {
+      final angle = (math.pi * 2 / 5) * i + 0.3;
+      final boltPos = Offset(math.cos(angle), math.sin(angle)) * diameter * 0.175;
+      canvas.drawCircle(boltPos, diameter * 0.035, boltPaint);
+      // bolt highlight
+      canvas.drawCircle(boltPos + const Offset(-1.2, -1.2), diameter * 0.012, Paint()..color = Colors.white.withOpacity(0.6));
+    }
+
+    // Spokes (5 spoke sport design)
     final spoke = Paint()
       ..color = const Color(0xFF1E272E)
-      ..strokeWidth = diameter * 0.075
+      ..strokeWidth = diameter * 0.065
       ..strokeCap = StrokeCap.round;
     for (int i = 0; i < 5; i++) {
       final angle = (math.pi * 2 / 5) * i;
       canvas.drawLine(Offset.zero, Offset(math.cos(angle), math.sin(angle)) * diameter * 0.24, spoke);
     }
-    canvas.drawCircle(Offset.zero, diameter * 0.08, Paint()..color = const Color(0xFF101820));
+
+    // Center cap
+    canvas.drawCircle(Offset.zero, diameter * 0.09, Paint()..color = const Color(0xFF0F141B));
+    final capHighlight = Paint()
+      ..shader = RadialGradient(colors: [Colors.white.withOpacity(0.5), Colors.transparent]).createShader(Rect.fromCircle(center: Offset.zero, radius: diameter * 0.09));
+    canvas.drawCircle(Offset.zero, diameter * 0.09, capHighlight);
+
     canvas.restore();
   }
 
