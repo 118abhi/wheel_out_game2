@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../game/particle_system.dart';
+import '../utils/sound_manager.dart';
 
 class WinScreen extends StatefulWidget {
   final int levelId;
@@ -212,23 +213,23 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-class _ActionButton extends StatefulWidget {
+class _PremiumActionButton extends StatefulWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  final bool isSecondary;
-  const _ActionButton({required this.label, required this.icon, required this.onTap, this.isSecondary = false});
+  final bool isPrimary;
+  const _PremiumActionButton({required this.label, required this.icon, required this.onTap, this.isPrimary = false});
 
   @override
-  State<_ActionButton> createState() => _ActionButtonState();
+  State<_PremiumActionButton> createState() => _PremiumActionButtonState();
 }
 
-class _ActionButtonState extends State<_ActionButton> with SingleTickerProviderStateMixin {
+class _PremiumActionButtonState extends State<_PremiumActionButton> with SingleTickerProviderStateMixin {
   late AnimationController _c;
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 120));
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 140));
   }
 
   @override
@@ -247,21 +248,34 @@ class _ActionButtonState extends State<_ActionButton> with SingleTickerProviderS
       },
       onTapCancel: () => _c.reverse(),
       child: ScaleTransition(
-        scale: Tween<double>(begin: 1, end: 0.93).animate(_c),
+        scale: Tween<double>(begin: 1.0, end: 0.94).animate(_c),
         child: Container(
-          height: 52,
+          height: widget.isPrimary ? 58 : 50,
           decoration: BoxDecoration(
-            gradient: widget.isSecondary ? null : const LinearGradient(colors: [AppTheme.primary, AppTheme.secondary]),
-            color: widget.isSecondary ? Colors.white.withOpacity(0.08) : null,
-            borderRadius: BorderRadius.circular(14),
-            border: widget.isSecondary ? Border.all(color: Colors.white.withOpacity(0.15)) : null,
+            gradient: widget.isPrimary
+                ? const LinearGradient(colors: [AppTheme.primary, AppTheme.secondary])
+                : null,
+            color: widget.isPrimary ? null : Colors.white.withOpacity(0.07),
+            borderRadius: BorderRadius.circular(18),
+            border: widget.isPrimary ? null : Border.all(color: Colors.white.withOpacity(0.16), width: 1.2),
+            boxShadow: widget.isPrimary
+                ? [BoxShadow(color: AppTheme.primary.withOpacity(0.4), blurRadius: 18, offset: const Offset(0, 6))]
+                : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(widget.icon, color: Colors.white, size: 20),
-              const SizedBox(width: 6),
-              Text(widget.label, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
+              Icon(widget.icon, color: Colors.white, size: widget.isPrimary ? 23 : 19),
+              const SizedBox(width: 9),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  fontSize: widget.isPrimary ? 16 : 14,
+                  letterSpacing: 0.6,
+                ),
+              ),
             ],
           ),
         ),

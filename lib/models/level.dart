@@ -1,5 +1,7 @@
 import 'car.dart';
 
+import 'weather.dart';
+
 class GameLevel {
   final int id;
   final String name;
@@ -8,6 +10,7 @@ class GameLevel {
   final List<CarModel> cars;
   final int parMoves;
   final int difficulty; // 1-5
+  final Weather? weather;
 
   const GameLevel({
     required this.id,
@@ -17,6 +20,7 @@ class GameLevel {
     required this.cars,
     this.parMoves = 10,
     this.difficulty = 1,
+    this.weather,
   });
 
   GameLevel clone() {

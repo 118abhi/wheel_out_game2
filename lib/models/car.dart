@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 enum CarOrientation { horizontal, vertical }
 
+enum CarType { sedan, suv, truck, police, sports, taxi }
+
 class CarModel {
   final String id;
   final int x;
@@ -11,6 +13,7 @@ class CarModel {
   final bool isTarget;
   final Color color;
   final Color darkColor;
+  final CarType carType;
 
   // runtime animated position
   double animX;
@@ -25,6 +28,7 @@ class CarModel {
     this.isTarget = false,
     required this.color,
     required this.darkColor,
+    this.carType = CarType.sedan,
   })  : animX = x.toDouble(),
         animY = y.toDouble();
 

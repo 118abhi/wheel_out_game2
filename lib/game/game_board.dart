@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/car.dart';
 import '../models/level.dart';
 import '../theme/app_theme.dart';
+import '../utils/sound_manager.dart';
 import 'car_widget.dart';
 import 'particle_system.dart';
 
@@ -92,8 +93,8 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double boardSize = math.min(constraints.maxWidth, constraints.maxHeight);
-        final double cellSize = boardSize / widget.gameState.level.gridSize;
+    final double boardSize = math.min(constraints.maxWidth, constraints.maxHeight);
+    final double cellSize = boardSize / widget.gameState.level.gridSize;
 
         return Container(
           width: boardSize,
@@ -128,19 +129,20 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
   Widget _buildBoardBackground(double cellSize, double boardSize) {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.asphalt,
-            AppTheme.asphalt.withOpacity(0.9),
-            const Color(0xFF34495E),
-          ],
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
-      child: CustomPaint(
-        size: Size(boardSize, boardSize),
-        painter: AsphaltPainter(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: CustomPaint(
+          size: Size(boardSize, boardSize),
+          painter: ClassicRushHourBoardPainter(gridSize: widget.gameState.level.gridSize),
+        ),
       ),
     );
   }
@@ -269,6 +271,7 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
             }
             dragCurrentPos = dragStartPos;
           });
+          SoundManager().startEngineSound();
           widget.onCarSelected(car);
         },
         onPanUpdate: (details) {
@@ -347,6 +350,10 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
               // snap back animation already via anim values staying
             }
           });
+          SoundManager().stopEngineSound();
+          if (moved) {
+            SoundManager().playCarSlide();
+          }
         },
         child: CarWidget(
           car: car,
@@ -438,96 +445,231 @@ class ExitGatePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Classic Rush Hour exit glow
     final glow = Paint()
-      ..color = AppTheme.accent.withOpacity(0.18 + math.sin(pulse * math.pi * 2).abs() * 0.18)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      ..color = AppTheme.accent.withOpacity(0.24 + math.sin(pulse * math.pi * 2).abs() * 0.22)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 11);
     canvas.drawRect(Offset.zero & size, glow);
 
+    // Metallic exit gate frame
     final gatePaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Colors.white.withOpacity(0.92), Colors.white.withOpacity(0.22)],
+        colors: [
+          Colors.white.withOpacity(0.96),
+          const Color(0xFFE8EEF5).withOpacity(0.6),
+          Colors.white.withOpacity(0.28),
+        ],
       ).createShader(Offset.zero & size);
-    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(size.width * 0.25)), gatePaint);
+    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(size.width * 0.32)), gatePaint);
 
+    // Classic chevrons (exit arrows)
     final chevron = Paint()
-      ..color = AppTheme.accent.withOpacity(0.95)
-      ..strokeWidth = 2.4
+      ..color = AppTheme.accent.withOpacity(0.92)
+      ..strokeWidth = 2.8
       ..strokeCap = StrokeCap.round;
     for (int i = 0; i < 3; i++) {
-      final y = size.height * (0.25 + i * 0.24);
+      final y = size.height * (0.22 + i * 0.26);
       final path = Path()
-        ..moveTo(size.width * 0.22, y - size.height * 0.09)
-        ..lineTo(size.width * 0.62, y)
-        ..lineTo(size.width * 0.22, y + size.height * 0.09);
+        ..moveTo(size.width * 0.18, y - size.height * 0.1)
+        ..lineTo(size.width * 0.68, y)
+        ..lineTo(size.width * 0.18, y + size.height * 0.1);
       canvas.drawPath(path, chevron);
     }
 
+    // Side barrier lines (classic look)
     final barrier = Paint()
-      ..color = const Color(0xFF111923).withOpacity(0.55)
-      ..strokeWidth = 1.4;
-    canvas.drawLine(Offset(size.width * 0.08, 0), Offset(size.width * 0.08, size.height), barrier);
-    canvas.drawLine(Offset(size.width * 0.88, 0), Offset(size.width * 0.88, size.height), barrier);
+      ..color = const Color(0xFF0F1A28).withOpacity(0.75)
+      ..strokeWidth = 1.8;
+    canvas.drawLine(Offset(size.width * 0.06, 0), Offset(size.width * 0.06, size.height), barrier);
+    canvas.drawLine(Offset(size.width * 0.94, 0), Offset(size.width * 0.94, size.height), barrier);
+
+    // Exit label
+    final label = TextPainter(
+      text: const TextSpan(
+        text: 'EXIT',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.5,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    label.paint(canvas, Offset(size.width / 2 - label.width / 2, size.height * 0.38));
   }
 
   @override
   bool shouldRepaint(covariant ExitGatePainter oldDelegate) => oldDelegate.pulse != pulse;
 }
 
-class AsphaltPainter extends CustomPainter {
+class ClassicRushHourBoardPainter extends CustomPainter {
+  final int gridSize;
+  ClassicRushHourBoardPainter({required this.gridSize});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final rand = math.Random(42);
-    final speckPaint = Paint()..color = Colors.white.withOpacity(0.045);
-    for (int i = 0; i < 120; i++) {
+    final double cell = size.width / gridSize;
+    final rand = math.Random(7);
+
+    // Deep classic asphalt base
+    final base = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          const Color(0xFF1F2A3A),
+          const Color(0xFF2C3E50),
+          const Color(0xFF1A2633),
+        ],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, base);
+
+    // Classic concrete border frame
+    final borderPaint = Paint()
+      ..color = const Color(0xFF455A6A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = cell * 0.18;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(cell * 0.3)),
+      borderPaint,
+    );
+
+    // Inner concrete rim
+    final innerBorder = Paint()
+      ..color = const Color(0xFF334455)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = cell * 0.08;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(cell * 0.1, cell * 0.1, size.width - cell * 0.2, size.height - cell * 0.2),
+        Radius.circular(cell * 0.22),
+      ),
+      innerBorder,
+    );
+
+    // Classic parking lot texture + wear
+    final wearPaint = Paint()..color = Colors.black.withOpacity(0.13);
+    for (int i = 0; i < 18; i++) {
+      final cx = rand.nextDouble() * size.width;
+      final cy = rand.nextDouble() * size.height;
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(cx, cy), width: 18 + rand.nextDouble() * 52, height: 8 + rand.nextDouble() * 18),
+        wearPaint,
+      );
+    }
+
+    // Subtle asphalt grain
+    final grain = Paint()..color = Colors.white.withOpacity(0.025);
+    for (int i = 0; i < 240; i++) {
       final x = rand.nextDouble() * size.width;
       final y = rand.nextDouble() * size.height;
-      final r = rand.nextDouble() * 1.7;
-      canvas.drawCircle(Offset(x, y), r, speckPaint);
+      canvas.drawCircle(Offset(x, y), 1.1, grain);
     }
 
-    final stainPaint = Paint()
-      ..color = Colors.black.withOpacity(0.10)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-    for (int i = 0; i < 5; i++) {
-      final center = Offset(rand.nextDouble() * size.width, rand.nextDouble() * size.height);
-      canvas.drawOval(Rect.fromCenter(center: center, width: 28 + rand.nextDouble() * 46, height: 14 + rand.nextDouble() * 30), stainPaint);
+    // Classic white road lines (Rush Hour style)
+    final linePaint = Paint()
+      ..color = Colors.white.withOpacity(0.16)
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+
+    for (double y = cell * 0.5; y < size.height; y += cell * 1.05) {
+      canvas.drawLine(Offset(cell * 0.15, y), Offset(cell * 0.48, y), linePaint);
+      canvas.drawLine(Offset(size.width * 0.52, y), Offset(size.width * 0.85, y), linePaint);
     }
 
-    final lanePaint = Paint()
-      ..color = AppTheme.accent.withOpacity(0.10)
+    // Yellow center divider line (classic rush hour feel)
+    final yellowLine = Paint()
+      ..color = AppTheme.accent.withOpacity(0.35)
+      ..strokeWidth = 2.2;
+    canvas.drawLine(Offset(cell * 0.5, cell * 1.1), Offset(cell * 0.5, size.height - cell * 1.1), yellowLine);
+
+    // Parking bay dashed borders (perfect classic style)
+    final bayBorder = Paint()
+      ..color = Colors.white.withOpacity(0.26)
+      ..strokeWidth = 1.9
+      ..strokeCap = StrokeCap.square;
+
+    for (int y = 0; y < gridSize; y++) {
+      for (int x = 0; x < gridSize; x++) {
+        if (x == gridSize - 1 && y == 2) continue; // leave exit gap
+
+        final left = x * cell;
+        final top = y * cell;
+        final m = cell * 0.18;
+
+        // Top left corner
+        canvas.drawLine(Offset(left, top), Offset(left, top + m), bayBorder);
+        canvas.drawLine(Offset(left, top), Offset(left + m, top), bayBorder);
+
+        // Top right corner
+        canvas.drawLine(Offset(left + cell, top), Offset(left + cell - m, top), bayBorder);
+        canvas.drawLine(Offset(left + cell, top), Offset(left + cell, top + m), bayBorder);
+
+        // Bottom left
+        canvas.drawLine(Offset(left, top + cell), Offset(left, top + cell - m), bayBorder);
+        canvas.drawLine(Offset(left, top + cell), Offset(left + m, top + cell), bayBorder);
+
+        // Bottom right
+        canvas.drawLine(Offset(left + cell, top + cell), Offset(left + cell, top + cell - m), bayBorder);
+        canvas.drawLine(Offset(left + cell, top + cell), Offset(left + cell - m, top + cell), bayBorder);
+      }
+    }
+
+    // Parking bay labels (A1, B3, etc.)
+    for (int y = 0; y < gridSize; y++) {
+      for (int x = 0; x < gridSize; x++) {
+        if (x == gridSize - 1 && y == 2) continue;
+
+        final bayText = TextPainter(
+          text: TextSpan(
+            text: '${String.fromCharCode(65 + y)}${x + 1}',
+            style: TextStyle(
+              fontSize: cell * 0.105,
+              fontWeight: FontWeight.w700,
+              color: Colors.white.withOpacity(0.11),
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        bayText.paint(canvas, Offset(x * cell + cell * 0.09, y * cell + cell * 0.78));
+      }
+    }
+
+    // Exit zone highlight (Classic Rush Hour style)
+    final exitRect = Rect.fromLTWH((gridSize - 1) * cell, 2 * cell, cell, cell);
+    final exitGlow = Paint()
+      ..color = AppTheme.accent.withOpacity(0.12)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawRect(exitRect.inflate(2), exitGlow);
+
+    // Exit lane arrows
+    final arrowPaint = Paint()
+      ..color = AppTheme.accent.withOpacity(0.85)
       ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round;
-    for (double y = 18; y < size.height; y += 54) {
-      canvas.drawLine(Offset(size.width * 0.08, y), Offset(size.width * 0.28, y), lanePaint);
-      canvas.drawLine(Offset(size.width * 0.72, y + 22), Offset(size.width * 0.92, y + 22), lanePaint);
+
+    final exitY = 2 * cell + cell * 0.5;
+    for (int i = 0; i < 3; i++) {
+      final ax = (gridSize - 0.72 + i * 0.23) * cell;
+      final path = Path()
+        ..moveTo(ax, exitY - cell * 0.13)
+        ..lineTo(ax + cell * 0.16, exitY)
+        ..lineTo(ax, exitY + cell * 0.13);
+      canvas.drawPath(path, arrowPaint);
     }
 
-    final curbPaint = Paint()
-      ..shader = LinearGradient(colors: [AppTheme.accent.withOpacity(0.42), Colors.white.withOpacity(0.24)]).createShader(Offset.zero & size)
-      ..strokeWidth = 3;
-    canvas.drawLine(const Offset(0, 2), Offset(size.width, 2), curbPaint);
-    canvas.drawLine(Offset(2, 0), Offset(2, size.height), curbPaint);
-    canvas.drawLine(Offset(0, size.height - 2), Offset(size.width, size.height - 2), curbPaint);
-
-    final crackPaint = Paint()
-      ..color = Colors.black.withOpacity(0.16)
-      ..strokeWidth = 1.1
-      ..strokeCap = StrokeCap.round;
-    for (int i = 0; i < 9; i++) {
-      final start = Offset(rand.nextDouble() * size.width, rand.nextDouble() * size.height);
-      final path = Path()..moveTo(start.dx, start.dy);
-      for (int j = 0; j < 3; j++) {
-        path.relativeLineTo((rand.nextDouble() - 0.5) * 20, (rand.nextDouble() - 0.5) * 20);
-      }
-      canvas.drawPath(path, crackPaint);
-    }
-
-    final puddlePaint = Paint()
-      ..shader = RadialGradient(colors: [AppTheme.secondary.withOpacity(0.10), Colors.transparent]).createShader(Offset.zero & size);
-    canvas.drawOval(Rect.fromCenter(center: Offset(size.width * 0.24, size.height * 0.72), width: size.width * 0.26, height: size.height * 0.10), puddlePaint);
-    canvas.drawOval(Rect.fromCenter(center: Offset(size.width * 0.76, size.height * 0.18), width: size.width * 0.20, height: size.height * 0.08), puddlePaint);
+    // Final polished border
+    final outerFrame = Paint()
+      ..color = Colors.white.withOpacity(0.09)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(cell * 0.3)),
+      outerFrame,
+    );
   }
 
   @override
@@ -542,67 +684,92 @@ class GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final linePaint = Paint()
-      ..color = Colors.white.withOpacity(0.07)
-      ..strokeWidth = 1
+      ..color = Colors.white.withOpacity(0.06)
+      ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
 
+    // Classic grid lines
     for (int i = 0; i <= gridSize; i++) {
       double pos = i * cellSize;
       canvas.drawLine(Offset(pos, 0), Offset(pos, size.height), linePaint);
       canvas.drawLine(Offset(0, pos), Offset(size.width, pos), linePaint);
     }
 
-    // parking spots dashed
+    // Classic Rush Hour parking lines + dashed borders
     final dashPaint = Paint()
-      ..color = Colors.white.withOpacity(0.18)
-      ..strokeWidth = 1.5
+      ..color = Colors.white.withOpacity(0.22)
+      ..strokeWidth = 1.6
       ..style = PaintingStyle.stroke;
 
-    // draw inner lot marks
+    final thickBorder = Paint()
+      ..color = Colors.white.withOpacity(0.16)
+      ..strokeWidth = 2.8
+      ..style = PaintingStyle.stroke;
+
     for (int y = 0; y < gridSize; y++) {
       for (int x = 0; x < gridSize; x++) {
-        if (x == gridSize - 1 && y == 2) continue; // exit
-        // small L corners
-        double l = cellSize * 0.12;
+        if (x == gridSize - 1 && y == 2) continue; // exit gap
+
         double left = x * cellSize;
         double top = y * cellSize;
+        double l = cellSize * 0.16;
 
-        // top-left
-        canvas.drawLine(Offset(left, top + l), Offset(left, top), dashPaint);
+        // Classic parking bay lines
+        canvas.drawLine(Offset(left, top), Offset(left, top + l), dashPaint);
         canvas.drawLine(Offset(left, top), Offset(left + l, top), dashPaint);
-        // top-right
-        canvas.drawLine(Offset(left + cellSize - l, top), Offset(left + cellSize, top), dashPaint);
+
+        canvas.drawLine(Offset(left + cellSize, top), Offset(left + cellSize - l, top), dashPaint);
         canvas.drawLine(Offset(left + cellSize, top), Offset(left + cellSize, top + l), dashPaint);
 
+        canvas.drawLine(Offset(left, top + cellSize), Offset(left + l, top + cellSize), dashPaint);
+        canvas.drawLine(Offset(left, top + cellSize), Offset(left, top + cellSize - l), dashPaint);
+
+        canvas.drawLine(Offset(left + cellSize, top + cellSize), Offset(left + cellSize - l, top + cellSize), dashPaint);
+        canvas.drawLine(Offset(left + cellSize, top + cellSize), Offset(left + cellSize, top + cellSize - l), dashPaint);
+
+        // Parking spot labels
         final bayText = TextPainter(
           text: TextSpan(
             text: '${String.fromCharCode(65 + y)}${x + 1}',
-            style: TextStyle(fontSize: cellSize * 0.12, fontWeight: FontWeight.w800, color: Colors.white.withOpacity(0.10)),
+            style: TextStyle(fontSize: cellSize * 0.105, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.09)),
           ),
           textDirection: TextDirection.ltr,
         )..layout();
-        bayText.paint(canvas, Offset(left + cellSize * 0.08, top + cellSize * 0.74));
+        bayText.paint(canvas, Offset(left + cellSize * 0.09, top + cellSize * 0.76));
       }
     }
 
+    // Exit lane highlight (Classic Rush Hour style)
+    final exitY = 2 * cellSize;
+    final exitLane = Paint()
+      ..color = AppTheme.accent.withOpacity(0.11)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(Rect.fromLTWH((gridSize - 1) * cellSize, exitY, cellSize, cellSize), exitLane);
+
+    // Exit arrows
     final exitPaint = Paint()
-      ..color = AppTheme.accent.withOpacity(0.18)
-      ..strokeWidth = 2.2
+      ..color = AppTheme.accent.withOpacity(0.75)
+      ..strokeWidth = 2.6
       ..strokeCap = StrokeCap.round;
-    final exitY = 2 * cellSize + cellSize / 2;
-    for (int i = 0; i < 3; i++) {
-      final x = cellSize * (3.2 + i * 0.55);
+    final exitCenterY = exitY + cellSize / 2;
+    for (int i = 0; i < 4; i++) {
+      final x = cellSize * (gridSize - 0.78 + i * 0.18);
       final path = Path()
-        ..moveTo(x, exitY - cellSize * 0.12)
-        ..lineTo(x + cellSize * 0.20, exitY)
-        ..lineTo(x, exitY + cellSize * 0.12);
+        ..moveTo(x, exitCenterY - cellSize * 0.12)
+        ..lineTo(x + cellSize * 0.18, exitCenterY)
+        ..lineTo(x, exitCenterY + cellSize * 0.12);
       canvas.drawPath(path, exitPaint);
     }
 
+    // Stop line
     final stopPaint = Paint()
-      ..color = Colors.white.withOpacity(0.20)
-      ..strokeWidth = 1.7;
-    canvas.drawLine(Offset(cellSize * (gridSize - 0.78), 2 * cellSize + cellSize * 0.18), Offset(cellSize * (gridSize - 0.78), 3 * cellSize - cellSize * 0.18), stopPaint);
+      ..color = Colors.white.withOpacity(0.24)
+      ..strokeWidth = 2.2;
+    canvas.drawLine(
+      Offset(cellSize * (gridSize - 0.85), 2 * cellSize + cellSize * 0.18),
+      Offset(cellSize * (gridSize - 0.85), 3 * cellSize - cellSize * 0.18),
+      stopPaint,
+    );
   }
 
   @override

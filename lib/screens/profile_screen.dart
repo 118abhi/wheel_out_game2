@@ -4,6 +4,7 @@ import '../models/player_profile.dart';
 import '../theme/app_theme.dart';
 import '../utils/levels_data.dart';
 import '../widgets/animated_parking_background.dart';
+import '../utils/sound_manager.dart';
 
 class ProfileScreen extends StatefulWidget {
   final PlayerProfile profile;
@@ -54,7 +55,8 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         ),
         child: SafeArea(
           child: AnimatedParkingBackground(
-            intensity: 0.75,
+            showRoad: true,
+            intensity: 0.88,
             child: CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(child: _buildHeader(profile, totalLevels)),
@@ -81,7 +83,10 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             Row(
               children: [
                 IconButton(
-                  onPressed: widget.onBack,
+                  onPressed: () {
+                    SoundManager().playClick();
+                    widget.onBack();
+                  },
                   icon: const Icon(Icons.arrow_back_rounded),
                   style: IconButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.10)),
                 ),

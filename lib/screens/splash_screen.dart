@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animated_parking_background.dart';
 
 class SplashScreen extends StatefulWidget {
   final VoidCallback onFinish;
@@ -49,27 +50,19 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.background,
-              AppTheme.surface,
-              AppTheme.surfaceLight,
-            ],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // animated background particles
-            AnimatedBuilder(
-              animation: _wheelController,
-              builder: (_, __) => CustomPaint(
-                size: Size.infinite,
-                painter: _SplashBackgroundPainter(rotation: _wheelController.value * 2 * 3.1415),
+        child: AnimatedParkingBackground(
+          showRoad: true,
+          intensity: 1.0,
+          child: Stack(
+            children: [
+              // animated background particles (kept for logo effect)
+              AnimatedBuilder(
+                animation: _wheelController,
+                builder: (_, __) => CustomPaint(
+                  size: Size.infinite,
+                  painter: _SplashBackgroundPainter(rotation: _wheelController.value * 2 * 3.1415),
+                ),
               ),
-            ),
             Center(
               child: AnimatedBuilder(
                 animation: _logoController,

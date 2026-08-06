@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/car.dart';
 import '../models/level.dart';
+import '../models/weather.dart';
 import '../theme/app_theme.dart';
 
 class LevelsRepository {
@@ -66,6 +67,21 @@ class LevelsRepository {
       _level58(),
       _level59(),
       _level60(),
+      _level61(),
+      _level62(),
+      _level63(),
+      _level64(),
+      _level65(),
+      _level66(),
+      _level67(),
+      _level68(),
+      _level69(),
+      _level70(),
+      _level71(),
+      _level72(),
+      _level73(),
+      _level74(),
+      _level75(),
     ];
   }
 
@@ -278,12 +294,12 @@ class LevelsRepository {
   static GameLevel _level59() => _genLevel(59, "The Last Gate", 58, 5, seed: 59);
   static GameLevel _level60() => _genLevel(60, "World Champion", 60, 5, seed: 60);
 
-  static GameLevel _genLevel(int id, String name, int par, int diff, {required int seed}) {
+  static GameLevel _genLevel(int id, String name, int par, int diff, {required int seed, int gridSize = 6, Weather? weather}) {
     // Deterministic level factory with a guaranteed escape backbone:
     // the red wheel always has 1-3 movable vertical blockers in the exit lane,
     // while extra traffic fills the garage without occupying the blockers' routes.
     final rnd = _PseudoRandom(seed * 9973);
-    const int size = 6;
+    final int size = gridSize;
     const int exitRow = 2;
     final cars = <CarModel>[];
     final occupied = <String>{};
@@ -322,6 +338,7 @@ class LevelsRepository {
         isTarget: true,
         color: AppTheme.targetRed,
         darkColor: AppTheme.targetRedDark,
+        carType: CarType.sports,
       ),
       ignoreReserved: true,
     );
@@ -365,6 +382,10 @@ class LevelsRepository {
       // Never create another permanent blocker in the red car exit row.
       if (horiz && y == exitRow && x + len > targetX + 1) continue;
 
+      // Assign varied car types
+      final carTypes = CarType.values;
+      final carType = carTypes[(idx + seed) % carTypes.length];
+
       final car = CarModel(
         id: 'C$idx',
         x: x,
@@ -373,12 +394,21 @@ class LevelsRepository {
         orientation: horiz ? CarOrientation.horizontal : CarOrientation.vertical,
         color: _c(idx + seed + 4),
         darkColor: _d(idx + seed + 4),
+        carType: carType,
       );
 
       if (place(car)) idx++;
     }
 
-    return GameLevel(id: id, name: name, exitRow: exitRow, cars: cars, parMoves: par, difficulty: diff);
+    return GameLevel(
+      id: id, 
+      name: name, 
+      exitRow: exitRow, 
+      cars: cars, 
+      parMoves: par, 
+      difficulty: diff,
+      weather: weather ?? Weather.clear,
+    );
   }
 }
 class _PseudoRandom {
