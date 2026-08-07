@@ -133,6 +133,147 @@ class RealCarPainter extends CustomPainter {
   }
 
   void _paintHorizontal(Canvas canvas, Size size) {
+    _paintTopDown3D(canvas, size);
+  }
+
+  /// Stylised isometric/top-down 3D car inspired by the reference artwork:
+  /// chunky body, deep glass cabin, visible tires and strong soft shadows.
+  void _paintTopDown3D(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final body = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.045, h * 0.09, w * 0.91, h * 0.80),
+      Radius.circular(h * 0.20),
+    );
+
+    final shadow = Paint()
+      ..color = Colors.black.withOpacity(dragging ? 0.48 : 0.32)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
+    canvas.drawRRect(body.shift(Offset(0, h * 0.08)), shadow);
+
+    // Tires sit outside the body, as they do in the reference image.
+    _paint3DTire(canvas, Offset(w * 0.17, h * 0.18), h * 0.13);
+    _paint3DTire(canvas, Offset(w * 0.83, h * 0.18), h * 0.13);
+    _paint3DTire(canvas, Offset(w * 0.17, h * 0.82), h * 0.13);
+    _paint3DTire(canvas, Offset(w * 0.83, h * 0.82), h * 0.13);
+
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [_lighten(car.color, 0.34), car.color, car.darkColor, _darken(car.color, 0.22)],
+        stops: const [0, .28, .72, 1],
+      ).createShader(body.outerRect);
+    canvas.drawRRect(body, paint);
+
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = Colors.white.withOpacity(0.42);
+    canvas.drawRRect(body, edge);
+
+    // Each class gets its own silhouette, not just a different paint colour.
+    final profile = _carProfile();
+    final cabin = Path()
+      ..moveTo(w * profile.left, h * .25)
+      ..quadraticBezierTo(w * (profile.left + .05), h * .16, w * profile.shoulder, h * profile.roof)
+      ..lineTo(w * (1 - profile.shoulder), h * profile.roof)
+      ..quadraticBezierTo(w * (1 - profile.left - .05), h * .16, w * (1 - profile.left), h * .25)
+      ..lineTo(w * (1 - profile.left - .05), h * .69)
+      ..quadraticBezierTo(w * (1 - profile.shoulder), h * .78, w * .56, h * .81)
+      ..lineTo(w * .44, h * .81)
+      ..quadraticBezierTo(w * profile.shoulder, h * .78, w * (profile.left + .05), h * .69)
+      ..close();
+    canvas.drawPath(cabin, Paint()..color = const Color(0xFF101827));
+
+    final glass = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Colors.white.withOpacity(.38), const Color(0xFF253A55), const Color(0xFF09111F)],
+      ).createShader(Rect.fromLTWH(w * .25, h * .14, w * .5, h * .67));
+    canvas.drawPath(cabin, glass);
+    final divider = Paint()..color = Colors.black.withOpacity(.68)..strokeWidth = 2;
+    canvas.drawLine(Offset(w * .30, h * .47), Offset(w * .70, h * .47), divider);
+    canvas.drawLine(Offset(w * .50, h * .17), Offset(w * .50, h * .77), divider);
+
+    // Hood highlight, lamps and rear light bar give the 3D cars a readable front.
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.16, h*.10, w*.68, h*.10), Radius.circular(h*.06)), Paint()..color = Colors.white.withOpacity(.13));
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.20, h*.77, w*.18, h*.045), Radius.circular(5)), Paint()..color = Colors.white.withOpacity(.7));
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.62, h*.77, w*.18, h*.045), Radius.circular(5)), Paint()..color = car.isTarget ? AppTheme.accent : Colors.redAccent.withOpacity(.85));
+    _paintVehicleTypeDetail(canvas, w, h);
+    if (car.isTarget) _paintTargetDecal(canvas, body.outerRect);
+    if (selected) {
+      final glow = Paint()..color = (car.isTarget ? AppTheme.accent : car.color).withOpacity(.65)..style = PaintingStyle.stroke..strokeWidth = 2.5;
+      canvas.drawRRect(body.inflate(3), glow);
+    }
+  }
+
+  ({double left, double shoulder, double roof}) _carProfile() {
+    switch (car.carType) {
+      case CarType.suv:
+      case CarType.van:
+        return (left: .20, shoulder: .36, roof: .12);
+      case CarType.sports:
+        return (left: .29, shoulder: .43, roof: .18);
+      case CarType.truck:
+        return (left: .17, shoulder: .34, roof: .10);
+      case CarType.classic:
+        return (left: .23, shoulder: .39, roof: .15);
+      case CarType.electric:
+        return (left: .27, shoulder: .44, roof: .17);
+      case CarType.luxury:
+        return (left: .24, shoulder: .41, roof: .13);
+      case CarType.police:
+      case CarType.taxi:
+      case CarType.sedan:
+        return (left: .25, shoulder: .43, roof: .14);
+    }
+  }
+
+  void _paintVehicleTypeDetail(Canvas canvas, double w, double h) {
+    final detail = Paint()..color = Colors.white.withOpacity(.22);
+    switch (car.carType) {
+      case CarType.police:
+        canvas.drawRect(Rect.fromLTWH(w * .43, h * .10, w * .14, h * .045), Paint()..color = Colors.blueAccent);
+        canvas.drawRect(Rect.fromLTWH(w * .50, h * .10, w * .07, h * .045), Paint()..color = Colors.redAccent);
+        break;
+      case CarType.taxi:
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.38, h*.03, w*.24, h*.055), const Radius.circular(3)), Paint()..color = AppTheme.accent);
+        break;
+      case CarType.sports:
+        canvas.drawLine(Offset(w*.22, h*.71), Offset(w*.78, h*.71), detail..strokeWidth = 2);
+        break;
+      case CarType.truck:
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.20, h*.69, w*.60, h*.08), const Radius.circular(4)), detail);
+        break;
+      case CarType.suv:
+        canvas.drawLine(Offset(w*.20, h*.22), Offset(w*.80, h*.22), detail..strokeWidth = 2);
+        break;
+      case CarType.electric:
+        canvas.drawLine(Offset(w*.22, h*.68), Offset(w*.78, h*.68), detail..strokeWidth = 1.4);
+        break;
+      case CarType.luxury:
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.18, h*.31, w*.64, h*.025), const Radius.circular(3)), detail);
+        break;
+      case CarType.van:
+        canvas.drawLine(Offset(w*.25, h*.52), Offset(w*.75, h*.52), detail..strokeWidth = 2);
+        break;
+      case CarType.classic:
+        canvas.drawCircle(Offset(w*.5, h*.11), h*.025, Paint()..color = AppTheme.accent);
+        break;
+      case CarType.sedan:
+        break;
+    }
+  }
+
+  void _paint3DTire(Canvas canvas, Offset center, double radius) {
+    final tire = Paint()..color = const Color(0xFF11131A);
+    canvas.drawOval(Rect.fromCenter(center: center, width: radius * 1.25, height: radius * .68), tire);
+    canvas.drawOval(Rect.fromCenter(center: center.translate(0, -radius * .06), width: radius * .55, height: radius * .28), Paint()..color = const Color(0xFF77808C));
+  }
+
+  void _paintHorizontalLegacy(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
     final body = Rect.fromLTWH(w * 0.035, h * 0.125, w * 0.93, h * 0.75);

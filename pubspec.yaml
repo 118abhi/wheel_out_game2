@@ -12,6 +12,17 @@ dependencies:
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.3.3
   audioplayers: ^6.0.0
+  # Motion and production-ready game integration packages.
+  flutter_animate: ^4.5.2
+  lottie: ^3.3.1
+  rive: ^0.13.20
+  flame: ^1.29.0
+  flame_audio: ^2.11.6
+  flame_forge2d: ^0.18.0
+  flame_tiled: ^1.21.0
+  flame_bloc: ^1.12.0
+  flame_rive: ^1.10.0
+  flame_lottie: ^0.7.0
 
 dev_dependencies:
   flutter_test:

@@ -82,6 +82,9 @@ class LevelsRepository {
       _level73(),
       _level74(),
       _level75(),
+      // Procedurally curated chapters 76–200. Each chapter gets a stable
+      // layout, increasing traffic density and difficulty.
+      ...List.generate(125, (index) => _generatedLevel(index + 76)),
     ];
   }
 
@@ -89,6 +92,50 @@ class LevelsRepository {
 
   static Color _c(int index) => AppTheme.carColors[index % AppTheme.carColors.length];
   static Color _d(int index) => AppTheme.carColors[index % AppTheme.carColors.length].withOpacity(0.85);
+
+  static GameLevel _generatedLevel(int id) {
+    final difficulty = id <= 10 ? 1 : id <= 30 ? 2 : id <= 70 ? 3 : id <= 120 ? 4 : 5;
+    final traffic = 4 + ((id - 76) % 7);
+    final cars = <CarModel>[
+      CarModel(id: 'target-$id', x: 0, y: 2, length: 2,
+        orientation: CarOrientation.horizontal, isTarget: true,
+        color: AppTheme.targetRed, darkColor: AppTheme.targetRedDark,
+        carType: CarType.sports),
+    ];
+    // Fill lanes away from the exit row first; deterministic layouts make
+    // every level reproducible and keep the difficulty progression predictable.
+    var cursor = 0;
+    for (var i = 0; i < traffic; i++) {
+      final vertical = (i + id) % 2 == 0;
+      final x = vertical ? (1 + ((i * 2 + id) % 5)) : (i % 2 == 0 ? 0 : 3);
+      final y = vertical ? ((i * 3 + id) % 4) : ((i + id) % 6);
+      final length = vertical ? 2 : (i % 3 == 0 ? 3 : 2);
+      final cells = <String>{};
+      for (final existing in cars) {
+        for (final point in existing.occupiedCells()) {
+          cells.add('${point.x},${point.y}');
+        }
+      }
+      final fits = List.generate(length, (n) => vertical ? '${x},${y + n}' : '${x + n},${y}')
+          .every((cell) => !cells.contains(cell) && (vertical ? y + length <= 6 : x + length <= 6));
+      if (!fits || (vertical && x == 0)) {
+        cursor++;
+        continue;
+      }
+      final colorIndex = id + i + cursor;
+      cars.add(CarModel(
+        id: 'car-$id-$i', x: x, y: y, length: length,
+        orientation: vertical ? CarOrientation.vertical : CarOrientation.horizontal,
+        color: _c(colorIndex), darkColor: _d(colorIndex),
+        carType: CarType.values[(colorIndex) % CarType.values.length],
+      ));
+      cursor++;
+    }
+    return GameLevel(
+      id: id, name: 'Chapter ${((id - 1) ~/ 25) + 1} • Level $id',
+      exitRow: 2, cars: cars, parMoves: 5 + difficulty * 3 + (id % 5), difficulty: difficulty,
+    );
+  }
 
   static GameLevel _level1() {
     return GameLevel(

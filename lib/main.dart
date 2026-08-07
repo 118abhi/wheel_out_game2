@@ -172,6 +172,15 @@ class _AppNavigatorState extends State<AppNavigator> with TickerProviderStateMix
           selectedSkin: _profile.selectedSkin,
           onBack: () => _navigateTo(AppScreen.levels),
           onHintUsed: _onHintUsed,
+          onCoinsSpent: (amount) {
+            if (_profile.coins < amount) return;
+            setState(() => _profile = _profile.spendCoins(amount));
+            _saveProfile();
+          },
+          onCoinsEarned: (amount) {
+            setState(() => _profile = _profile.addReward(coinsWon: amount));
+            _saveProfile();
+          },
           onNextLevel: (nextId) {
             if (nextId > _totalLevels) {
               _navigateTo(AppScreen.profile);

@@ -71,8 +71,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               // NEW: Dynamic 3D Animated Background (same as game)
               Positioned.fill(
                 child: AnimatedParkingBackground(
+                  // The landing screen is the game's 3D poster: keep the
+                  // scene richer here, while gameplay stays minimal and focused.
                   showRoad: true,
-                  intensity: 0.88,
+                  intensity: 0.72,
                   child: const SizedBox.expand(),
                 ),
               ),
@@ -190,6 +192,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildLogo() {
+    final width = MediaQuery.sizeOf(context).width;
+    final titleSize = width < 360 ? 38.0 : width < 430 ? 44.0 : 50.0;
+    final subtitleSpacing = width < 360 ? 2.6 : width < 430 ? 3.6 : 4.6;
     return Column(
       children: [
         AnimatedBuilder(
@@ -201,7 +206,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               height: 128,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(colors: [AppTheme.primary, AppTheme.secondary]),
+                gradient: const RadialGradient(
+                  center: Alignment(-0.35, -0.45),
+                  radius: 0.95,
+                  colors: [Color(0xFFB7AEFF), AppTheme.primary, Color(0xFF30268F)],
+                  stops: [0.0, 0.46, 1.0],
+                ),
+                border: Border.all(color: Colors.white.withOpacity(0.48), width: 2),
                 boxShadow: [
                   BoxShadow(color: AppTheme.primary.withOpacity(0.5), blurRadius: 30, spreadRadius: 5),
                   BoxShadow(color: AppTheme.secondary.withOpacity(0.28 + math.sin(spin).abs() * 0.18), blurRadius: 46, spreadRadius: 4),
@@ -210,8 +221,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Transform.rotate(angle: spin, child: Icon(Icons.settings_rounded, size: 92, color: Colors.white.withOpacity(0.18))),
-                  const Icon(Icons.directions_car_rounded, size: 62, color: Colors.white),
+                  // Offset silhouettes create a simple 3D extrusion for the
+                  // badge without requiring a raster asset.
+                  Transform.translate(
+                    offset: const Offset(0, 7),
+                    child: Icon(Icons.settings_rounded, size: 92, color: const Color(0xFF211A70).withOpacity(0.72)),
+                  ),
+                  Transform.rotate(angle: spin, child: Icon(Icons.settings_rounded, size: 92, color: Colors.white.withOpacity(0.20))),
+                  Stack(
+                    children: [
+                      Transform.translate(offset: const Offset(0, 4), child: Icon(Icons.directions_car_rounded, size: 62, color: const Color(0xFF33259A).withOpacity(.8))),
+                      const Icon(Icons.directions_car_rounded, size: 62, color: Colors.white),
+                    ],
+                  ),
                   Positioned(
                     bottom: 20,
                     child: Container(width: 58, height: 5, decoration: BoxDecoration(color: AppTheme.accent, borderRadius: BorderRadius.circular(20))),
@@ -224,10 +246,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         const SizedBox(height: 20),
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(colors: [AppTheme.primary, AppTheme.accent, AppTheme.secondary]).createShader(bounds),
-          child: const Text(
+          child: const FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
             'WHEEL OUT',
             style: TextStyle(
-              fontSize: 50,
+              fontSize: titleSize,
               fontWeight: FontWeight.w900,
               letterSpacing: 2.2,
               color: Colors.white,
@@ -240,6 +264,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
         ),
+        ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -251,8 +276,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           child: Text(
             'SLIDE • SPIN • ESCAPE',
             style: TextStyle(
-              letterSpacing: 4.6,
-              fontSize: 11,
+              letterSpacing: subtitleSpacing,
+              fontSize: width < 360 ? 9.5 : 11,
               fontWeight: FontWeight.w900,
               fontFamily: 'Roboto',
               color: Colors.white.withOpacity(0.84),
@@ -280,10 +305,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             delay: 0,
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _AnimatedButton(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth < 380 ? 2 : 3;
+              final gap = 10.0;
+              final itemWidth = (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  SizedBox(
+                    width: itemWidth,
+                    child: _AnimatedButton(
                   label: 'LEVELS',
                   icon: Icons.grid_view_rounded,
                   gradient: [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.05)],
@@ -293,11 +326,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     widget.onLevels();
                   },
                   delay: 100,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _AnimatedButton(
+                    ),
+                  ),
+              SizedBox(
+                    width: itemWidth,
+                    child: _AnimatedButton(
                   label: 'DAILY',
                   icon: Icons.today_rounded,
                   gradient: [AppTheme.accent.withOpacity(0.3), AppTheme.accent.withOpacity(0.1)],
@@ -319,11 +352,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     );
                   },
                   delay: 160,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _AnimatedButton(
+                    ),
+                  ),
+              SizedBox(
+                    width: itemWidth,
+                    child: _AnimatedButton(
                   label: 'PROFILE',
                   icon: Icons.badge_rounded,
                   gradient: [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.05)],
@@ -333,11 +366,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     widget.onProfile();
                   },
                   delay: 160,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _AnimatedButton(
+                    ),
+                  ),
+              SizedBox(
+                    width: itemWidth,
+                    child: _AnimatedButton(
                   label: 'CARS',
                   icon: Icons.directions_car_rounded,
                   gradient: [AppTheme.secondary.withOpacity(0.3), AppTheme.secondary.withOpacity(0.1)],
@@ -352,11 +385,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     );
                   },
                   delay: 220,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _AnimatedButton(
+                    ),
+                  ),
+              SizedBox(
+                    width: itemWidth,
+                    child: _AnimatedButton(
                   label: 'SETTINGS',
                   icon: Icons.settings_rounded,
                   gradient: [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.05)],
@@ -371,9 +404,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     );
                   },
                   delay: 280,
-                ),
-              ),
-            ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           Row(
@@ -450,6 +485,7 @@ class _AnimatedButtonState extends State<_AnimatedButton> with SingleTickerProvi
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 380;
     return GestureDetector(
       onTapDown: (_) => _ctrl.forward(),
       onTapUp: (_) {
@@ -462,7 +498,7 @@ class _AnimatedButtonState extends State<_AnimatedButton> with SingleTickerProvi
         builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
         child: Container(
           width: double.infinity,
-          height: 62,
+          height: compact ? 56 : 62,
           decoration: BoxDecoration(
             gradient: widget.isOutlined ? null : LinearGradient(colors: widget.gradient),
             color: widget.isOutlined ? Colors.white.withOpacity(0.08) : null,
@@ -473,14 +509,14 @@ class _AnimatedButtonState extends State<_AnimatedButton> with SingleTickerProvi
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(widget.icon, color: Colors.white, size: 24),
-              const SizedBox(width: 8),
+              Icon(widget.icon, color: Colors.white, size: compact ? 20 : 24),
+              SizedBox(width: compact ? 5 : 8),
               Flexible(
                 child: Text(
                   widget.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.15, color: Colors.white, fontFamily: 'Roboto'),
+                  style: TextStyle(fontSize: compact ? 11.5 : 15, fontWeight: FontWeight.w900, letterSpacing: compact ? .65 : 1.15, color: Colors.white, fontFamily: 'Roboto'),
                 ),
               ),
             ],

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
@@ -17,6 +18,8 @@ class GameScreen extends StatefulWidget {
   final int selectedSkin;
   final VoidCallback onBack;
   final VoidCallback onHintUsed;
+  final Function(int amount) onCoinsSpent;
+  final Function(int amount) onCoinsEarned;
   final Function(int nextLevelId) onNextLevel;
   final Function(int stars, int moves) onLevelComplete;
 
@@ -29,6 +32,8 @@ class GameScreen extends StatefulWidget {
     required this.selectedSkin,
     required this.onBack,
     required this.onHintUsed,
+    required this.onCoinsSpent,
+    required this.onCoinsEarned,
     required this.onNextLevel,
     required this.onLevelComplete,
   });
@@ -57,6 +62,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   int _activePowerUps = 3;
   bool _timeFrozen = false;
   bool _doubleMoveActive = false;
+  int _combo = 0;
+  DateTime? _lastMoveAt;
+  bool _hintMovePending = false;
+  bool _timeAttack = false;
+  int _elapsedSeconds = 0;
+  Timer? _timer;
+  int get _goldTarget => math.max(20, widget.level.parMoves * 3);
+  int get _silverTarget => _goldTarget + 15;
+  int get _bronzeTarget => _silverTarget + 20;
 
   @override
   void initState() {
@@ -121,14 +135,43 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
      ..animY = car.animY;
   }
 
+  void _toggleTimeAttack() {
+    setState(() => _timeAttack = !_timeAttack);
+    _timer?.cancel();
+    if (_timeAttack) {
+      _elapsedSeconds = 0;
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted && !_showWin) setState(() => _elapsedSeconds++);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('TIME ATTACK ON • Gold $_goldTarget s  Silver $_silverTarget s  Bronze $_bronzeTarget s')));
+    }
+  }
+
   @override
   void dispose() {
+    _timer?.cancel();
     _hintController.dispose();
     _boardScaleController.dispose();
     super.dispose();
   }
 
   void _onCarMoved(CarModel newCar, double _) {
+    final now = DateTime.now();
+    final fastEnough = _lastMoveAt != null && now.difference(_lastMoveAt!).inMilliseconds <= 4500;
+    final eligible = !_showingHint && !_hintMovePending;
+    if (eligible && fastEnough) {
+      _combo++;
+    } else if (eligible) {
+      _combo = 1;
+    } else {
+      _combo = 0;
+    }
+    _lastMoveAt = now;
+    final bonus = _combo >= 3 ? (_combo - 2) * 2 : 0;
+    if (bonus > 0) {
+      widget.onCoinsEarned(bonus);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$_combo MOVE COMBO  •  +$bonus coins'), duration: const Duration(milliseconds: 900)));
+    }
     // update state
     List<CarModel> newCars = _gameState.cars.map((c) => c.id == newCar.id ? newCar : c.clone()).toList();
     List<List<CarModel>> newHistory = [..._gameState.history, _gameState.cars.map((c) => c.clone()).toList()];
@@ -151,6 +194,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (_gameState.moves <= widget.level.parMoves) stars = 3;
     else if (_gameState.moves <= widget.level.parMoves + 4) stars = 2;
 
+    _timer?.cancel();
+    if (_timeAttack) {
+      final bonus = _elapsedSeconds <= _goldTarget ? 30 : _elapsedSeconds <= _silverTarget ? 20 : _elapsedSeconds <= _bronzeTarget ? 10 : 0;
+      if (bonus > 0) widget.onCoinsEarned(bonus);
+    }
     HapticFeedback.heavyImpact();
     SoundManager().playWin();
     SoundManager().stopBackgroundMusic();
@@ -169,6 +217,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _reset() {
+    _combo = 0;
+    _lastMoveAt = null;
     setState(() {
       _gameState = GameState(level: widget.level, cars: _initialState.cars.map((c) => c.clone()).toList(), moves: 0, history: []);
       _selectedCar = null;
@@ -213,6 +263,34 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   void _showHint() {
     if (_hintCount <= 0 || _showingHint) return;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('CHOOSE A HINT', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 8),
+            Text('Hints help you solve the puzzle without breaking your streak.', style: TextStyle(color: Colors.white.withOpacity(.6))),
+            const SizedBox(height: 16),
+            _HintOption(icon: Icons.visibility_rounded, title: 'Basic hint', detail: 'Highlights the next car', cost: 0, onTap: () { Navigator.pop(context); _revealHint(1); }),
+            _HintOption(icon: Icons.alt_route_rounded, title: 'Direction hint', detail: 'Shows the best direction and distance', cost: 5, onTap: () { Navigator.pop(context); _revealHint(2); }),
+            _HintOption(icon: Icons.auto_fix_high_rounded, title: 'Full hint', detail: 'Performs the next correct move', cost: 15, onTap: () { Navigator.pop(context); _revealHint(3); }),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _revealHint(int tier) {
+    if (tier > 1 && widget.coins < (tier == 2 ? 5 : 15)) return;
+    if (tier > 1) widget.onCoinsSpent(tier == 2 ? 5 : 15);
+    _findAndShowHint(tier);
+  }
+
+  void _findAndShowHint(int tier) {
     // simple hint: find a car that is blocking target's path and can move
     var target = _gameState.cars.firstWhere((c) => c.isTarget);
     var grid = _gameState.occupiedGrid();
@@ -237,6 +315,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 widget.onHintUsed();
                 HapticFeedback.lightImpact();
                 SoundManager().playHint();
+                if (tier == 3) _performFullHint(car, _hintDelta!);
                 return;
               }
             }
@@ -259,9 +338,27 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         widget.onHintUsed();
         HapticFeedback.lightImpact();
         SoundManager().playHint();
+        if (tier == 3) _performFullHint(car, _hintDelta!);
         return;
       }
     }
+  }
+
+  void _performFullHint(CarModel car, int delta) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Full Hint Used • Correct move applied'), duration: Duration(seconds: 2)));
+    Future.delayed(const Duration(milliseconds: 420), () {
+      if (!mounted) return;
+      final moved = car.copyWith(
+        x: car.isHorizontal ? car.x + delta : car.x,
+        y: car.isHorizontal ? car.y : car.y + delta,
+      );
+      if (_gameState.canMove(car, delta)) {
+        _onCarMoved(moved, delta.abs().toDouble());
+        setState(() => _showingHint = false);
+        HapticFeedback.mediumImpact();
+        SoundManager().playCarMove();
+      }
+    });
   }
 
   @override
@@ -277,9 +374,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         ),
         child: SafeArea(
           child: AnimatedParkingBackground(
-            showRoad: true,
-            intensity: 1.0,
-            weatherType: widget.level.weather?.type,
+            showRoad: false,
+            intensity: 0.22,
             child: Stack(
               children: [
               Column(
@@ -475,6 +571,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               ),
             ),
             const SizedBox(width: 8),
+            InkWell(
+              onTap: _toggleTimeAttack,
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.timer_rounded, color: _timeAttack ? AppTheme.accent : Colors.white.withOpacity(.45), size: 16),
+                  if (_timeAttack) ...[
+                    const SizedBox(width: 3),
+                    Text('${_elapsedSeconds}s', style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w900, fontSize: 11)),
+                  ],
+                ]),
+              ),
+            ),
+            const SizedBox(width: 8),
             Icon(Icons.sensors_rounded, color: Colors.white.withOpacity(0.45), size: 16),
             const SizedBox(width: 4),
             Flexible(
@@ -512,6 +623,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ),
     );
   }
+}
+
+class _HintOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String detail;
+  final int cost;
+  final VoidCallback onTap;
+  const _HintOption({required this.icon, required this.title, required this.detail, required this.cost, required this.onTap});
+  @override
+  Widget build(BuildContext context) => ListTile(
+    onTap: onTap,
+    leading: CircleAvatar(backgroundColor: AppTheme.accent.withOpacity(.15), child: Icon(icon, color: AppTheme.accent)),
+    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+    subtitle: Text(detail),
+    trailing: cost == 0 ? const Text('FREE', style: TextStyle(color: AppTheme.secondary, fontWeight: FontWeight.w900)) : Text('$cost coins', style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w800)),
+  );
 }
 
 class _MiniWallet extends StatelessWidget {
