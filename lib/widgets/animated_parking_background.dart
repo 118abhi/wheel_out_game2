@@ -73,6 +73,13 @@ class ThreeDAnimatedParkingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Low-intensity mode keeps the game focused on the board and cars. It is
+    // intentionally restrained: a clean asphalt gradient and a few soft lights
+    // instead of a busy city scene.
+    if (intensity <= 0.5) {
+      _paintMinimalBackground(canvas, size);
+      return;
+    }
     _paintSkyAndHorizon(canvas, size);
     _paint3DCityBackground(canvas, size);
     _paint3DParkingLot(canvas, size);
@@ -102,6 +109,32 @@ class ThreeDAnimatedParkingPainter extends CustomPainter {
       _paintLightning(canvas, size);
     }
     _paintWindParticles(canvas, size);
+  }
+
+  void _paintMinimalBackground(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final background = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF111827), Color(0xFF0B1220), Color(0xFF070B12)],
+      ).createShader(rect);
+    canvas.drawRect(rect, background);
+
+    final glow = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0, -0.55),
+        radius: 0.9,
+        colors: [AppTheme.primary.withOpacity(0.10), Colors.transparent],
+      ).createShader(rect);
+    canvas.drawRect(rect, glow);
+
+    final dots = Paint()..color = Colors.white.withOpacity(0.035);
+    for (int i = 0; i < 18; i++) {
+      final x = (i * 83.0 + size.width * 0.13) % size.width;
+      final y = (i * 137.0 + size.height * 0.08) % size.height;
+      canvas.drawCircle(Offset(x, y), 1.2 + (i % 3) * 0.5, dots);
+    }
   }
 
   void _paintSkyAndHorizon(Canvas canvas, Size size) {

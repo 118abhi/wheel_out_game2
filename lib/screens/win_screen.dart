@@ -96,7 +96,19 @@ class _WinScreenState extends State<WinScreen> with TickerProviderStateMixin {
                         const SizedBox(height: 8),
                         Text("You freed the red wheel in ${widget.moves} moves!", style: TextStyle(color: Colors.white.withOpacity(0.6))),
                         const SizedBox(height: 8),
-                        Text("+${stars * 10} coins • Profile XP saved", style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w800, fontSize: 12)),
+                        TweenAnimationBuilder<int>(
+                          tween: IntTween(begin: 0, end: stars * 10),
+                          duration: const Duration(milliseconds: 900),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, coins, _) => Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.toll_rounded, size: 16, color: AppTheme.accent),
+                              const SizedBox(width: 5),
+                              Text('+$coins coins  •  +${stars * 25} XP', style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w800, fontSize: 12)),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 20),
                         // stars
                         Row(

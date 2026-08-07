@@ -116,6 +116,8 @@ class PlayerProfile {
 
   PlayerProfile spendHint() => copyWith(hints: math.max(0, hints - 1));
 
+  PlayerProfile spendCoins(int amount) => copyWith(coins: math.max(0, coins - amount));
+
   PlayerProfile addReward({int coinsWon = 0, int hintsWon = 0}) {
     return copyWith(coins: coins + coinsWon, hints: hints + hintsWon);
   }

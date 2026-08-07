@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 enum CarOrientation { horizontal, vertical }
 
-enum CarType { sedan, suv, truck, police, sports, taxi }
+enum CarType { sedan, suv, truck, police, sports, taxi, van, classic, electric, luxury }
 
 class CarModel {
   final String id;

@@ -355,12 +355,24 @@ class _GameBoardWidgetState extends State<GameBoardWidget> with TickerProviderSt
             SoundManager().playCarSlide();
           }
         },
-        child: CarWidget(
-          car: car,
-          cellSize: cellSize * 0.92,
-          wheelRotation: isDragging ? wheelRotation : 0,
-          isDragging: isDragging,
-          isSelected: isSelected,
+        child: AnimatedScale(
+          scale: isDragging ? 1.035 : (isSelected ? 1.008 : 1.0),
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutBack,
+          child: AnimatedRotation(
+            // A tiny body lean makes dragging feel physical without making the
+            // puzzle hard to read.
+            turns: isDragging ? (dragCurrentPos - dragStartPos).clamp(-cellSize, cellSize) / cellSize * 0.006 : 0,
+            duration: const Duration(milliseconds: 110),
+            curve: Curves.easeOut,
+            child: CarWidget(
+              car: car,
+              cellSize: cellSize * 0.92,
+              wheelRotation: isDragging ? wheelRotation : 0,
+              isDragging: isDragging,
+              isSelected: isSelected,
+            ),
+          ),
         ),
       ),
     );
@@ -526,6 +538,17 @@ class ClassicRushHourBoardPainter extends CustomPainter {
         ],
       ).createShader(Offset.zero & size);
     canvas.drawRect(Offset.zero & size, base);
+
+    // Raised 3D parking deck: a soft top sheen and deep lower falloff make the
+    // play area feel like a small physical diorama under the cars.
+    final deckSheen = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.white.withOpacity(0.12), Colors.transparent, Colors.black.withOpacity(0.22)],
+        stops: const [0.0, 0.32, 1.0],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, deckSheen);
 
     // Classic concrete border frame
     final borderPaint = Paint()
@@ -805,6 +828,23 @@ class MoveGuidePainter extends CustomPainter {
       canvas.drawRRect(rrect, guidePaint);
       canvas.drawRRect(rrect, borderPaint);
     }
+
+    // Ghost silhouette at the furthest reachable position gives an immediate
+    // prediction before the player drags.
+    final ghost = Paint()
+      ..color = AppTheme.accent.withOpacity(0.10)
+      ..style = PaintingStyle.fill;
+    final ghostBorder = Paint()
+      ..color = AppTheme.accent.withOpacity(0.34)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final ghostX = car.isHorizontal ? car.x + positiveSteps : car.x;
+    final ghostY = car.isHorizontal ? car.y : car.y + positiveSteps;
+    final ghostRect = Rect.fromLTWH(ghostX * cellSize + cellSize * .08, ghostY * cellSize + cellSize * .08,
+        (car.isHorizontal ? car.length : 1) * cellSize - cellSize * .16,
+        (car.isHorizontal ? 1 : car.length) * cellSize - cellSize * .16);
+    canvas.drawRRect(RRect.fromRectAndRadius(ghostRect, Radius.circular(cellSize * .18)), ghost);
+    canvas.drawRRect(RRect.fromRectAndRadius(ghostRect, Radius.circular(cellSize * .18)), ghostBorder);
 
     if (car.isHorizontal) {
       for (int step = 1; step <= negativeSteps; step++) {
